@@ -2,7 +2,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1', 'app/']
 
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1']
+
 logsBucket: 'gs://devops_ci_logs'
-
-
-
