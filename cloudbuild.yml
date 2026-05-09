@@ -25,6 +25,10 @@ steps:
 - name: 'ubuntu'
   script: |
     #!/usr/bin/env bash
-    echo "Your project ID is: $PROJECT_ID"
-
+    echo "Your project ID is $PROJECT_ID"
+options:
+  automapSubstitutions: true
+substitutions:
+  _USER: "Google Cloud"
+  
 logsBucket: 'gs://devops_ci_logs'
