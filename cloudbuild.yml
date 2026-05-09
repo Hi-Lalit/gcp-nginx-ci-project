@@ -8,9 +8,9 @@ steps:
 
 - name: 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01'
   entrypoint: '/bin/sh'
-  args: [-c, 'hostname', ]
+  args: ['Hostname is', '-c', 'hostname', ]
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01', 'hostname']
+  args: ['Run the container and display its hostname', '-c', 'run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01', 'hostname']
 
 logsBucket: 'gs://devops_ci_logs'
