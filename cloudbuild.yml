@@ -1,9 +1,9 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
   dir: 'app'
-  args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01', '.']
+  args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02', '.']
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01']
+  args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02']
 
 logsBucket: 'gs://devops_ci_logs'
