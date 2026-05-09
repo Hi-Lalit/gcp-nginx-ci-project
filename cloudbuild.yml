@@ -17,9 +17,14 @@ steps:
   entrypoint: '/bin/sh'
   args: ['-c', 'echo "Hostname is: " $(hostname)']
 
-# Test the image by running 
+# Test the image by running it
 
 - name: 'gcr.io/cloud-builders/docker'
   args: ['run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02', 'hostname']
+
+- name: 'ubuntu'
+  script: |
+    #!/user/bin/env bash
+    echo "Your project ID is: $PROJECT_ID"
 
 logsBucket: 'gs://devops_ci_logs'
