@@ -28,7 +28,5 @@ steps:
     echo "Your project ID is $PROJECT_ID"
 options:
   automapSubstitutions: true
-substitutions:
-  _USER: "Google Cloud"
-  
+
 logsBucket: 'gs://devops_ci_logs'
