@@ -1,14 +1,23 @@
 steps:
+
+# Build the Docker image
+
 - name: 'gcr.io/cloud-builders/docker'
   dir: 'app'
   args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01', '.']
 
+# Push the Docker image to Artifact Registry
+
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01']
+
+# Print the hostname of the container to verify that the image is working correctly
 
 - name: 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01'
   entrypoint: '/bin/sh'
   args: ['-c', 'echo "Hostname is: " $(hostname)']
+
+# Test the image by running 
 
 - name: 'gcr.io/cloud-builders/docker'
   args: ['run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.01', 'hostname']
