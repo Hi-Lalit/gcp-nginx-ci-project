@@ -26,4 +26,4 @@ steps:
 # - name: 'gcr.io/cloud-builders/docker'
 #   args: ['run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02', 'hostname']
 
-# logsBucket: 'gs://devops_ci_logs'
+logsBucket: 'gs://devops_ci_logs'
