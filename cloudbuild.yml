@@ -1,36 +1,5 @@
 steps:
 
-#  Check Image exists or not in Artifact Registry
-
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: 'check-image'
-  entrypoint: 'bash'
-  args:
-  - '-c'
-  - |
-    FULL_PATH='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-
-    if gcloud artifacts docker images describe "$$FULL_PATH" >/dev/null 2>&1; then
-      echo "Image '$$FULL_PATH' already exists in Artifact Registry."
-      exit 0
-    else
-      echo "Image '$$FULL_PATH' does not exist in Artifact Registry."
-      exit 1
-    fi
-
-
-# Build the Docker image
-
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'build-image'
-  waitFor: ['check-image']
-  dir: 'app'
-  args: 
-  - 'build'
-  - '-t'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-  - '.'
-
 # Push the Docker image to Artifact Registry
 
 - name: 'gcr.io/cloud-builders/docker'
