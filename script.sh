@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash\r
 
 images=$(docker images | awk '{print $1}')
 
