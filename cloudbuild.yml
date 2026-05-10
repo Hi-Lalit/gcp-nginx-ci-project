@@ -17,7 +17,7 @@ steps:
   - |
     FULL_PATH='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
-    if gcloud artifacts docker images describe "$FULL_PATH" >/dev/null 2>&1; then
+    if gcloud artifacts docker images describe "$$FULL_PATH" >/dev/null 2>&1; then
       echo "Image '$$FULL_PATH' already exists in Artifact Registry."
       exit 0
     else
