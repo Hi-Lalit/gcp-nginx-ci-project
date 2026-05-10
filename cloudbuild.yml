@@ -3,7 +3,7 @@ substitutions:
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
   _TAG: 'v1.02'
-  _LOG_BUCKET: 'gs://devops_ci_logs'
+  _LOG_BUCKET: 'gs://devops_ci_logs'  
 
 steps:
 
@@ -16,12 +16,12 @@ steps:
   - '-c'
   - |
     set -e
-    IMAGE=$(_REGION)-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-    if gcloud artifacts docker images describe $IMAGE > /dev/null 2>&1; then
-      echo "Image '$IMAGE' already exists in Artifact Registry."
+    _IMAGE-NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+    if gcloud artifacts docker images describe $_IMAGE-NAME > /dev/null 2>&1; then
+      echo "Image '${_IMAGE-NAME}' already exists in Artifact Registry."
       exit 0
     else
-      echo "Image '$IMAGE' does not exist in Artifact Registry."
+      echo "Image '${_IMAGE-NAME}' does not exist in Artifact Registry."
       exit 1
     fi
 
