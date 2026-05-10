@@ -16,8 +16,7 @@ steps:
   - '-c'
   - |
     set -e
-    _IMAGE-NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-    if gcloud artifacts docker images describe $_IMAGE-NAME > /dev/null 2>&1; then
+    if gcloud artifacts docker images describe '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}' >/dev/null 2>&1; then
       echo "Image '${_IMAGE-NAME}' already exists in Artifact Registry."
       exit 0
     else
