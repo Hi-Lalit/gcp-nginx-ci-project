@@ -1,10 +1,20 @@
 steps:
 
+# Build the Docker image
+
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-image'
+  dir: 'app'
+  args: 
+  - 'build'
+  - '-t'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '.'
+
 # Push the Docker image to Artifact Registry
 
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
-  waitFor: ['build-image']
   args: 
   - 'push'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
