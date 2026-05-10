@@ -1,25 +1,66 @@
+substitutions:
+  _REGION: 'us-east1'
+  _REPOSITORY: 'docker-repo'
+  _IMAGE: 'nginx-app'
+  _TAG: 'v1.02'
+  _LOG_BUCKET: 'gs://devops_ci_logs'
+
 steps:
+
+#  Check Image exists or not in Artifact Registry
+
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'check-image'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    set -e
+    IMAGE=$(_REGION)-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+    if gcloud artifacts docker images describe $IMAGE > /dev/null 2>&1; then
+      echo "Image '$IMAGE' already exists in Artifact Registry."
+      exit 0
+    else
+      echo "Image '$IMAGE' does not exist in Artifact Registry."
+      exit 1
+    fi
+
 
 # Build the Docker image
 
 - name: 'gcr.io/cloud-builders/docker'
+  id: 'build-image'
+  waitFor: ['check-image']
   dir: 'app'
-  args: ['build', '-t', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02', '.']
+  args: 
+  - 'build'
+  - '-t'
+  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '.'
 
 # Push the Docker image to Artifact Registry
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02']
+  id: 'push-image'
+  waitFor: ['build-image']
+  args: 
+  - 'push'
+  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
 # Print the hostname of the container to verify that the image is working correctly
 
-- name: 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02'
+- name: '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
   entrypoint: '/bin/sh'
-  args: ['-c', 'echo "Hostname is: " $(hostname)']
-
+  args: 
+  - '-c'
+  - 'echo "Hostname is: " $(hostname)'
+  
 # Test the image by running it
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['run', '--rm', 'us-east1-docker.pkg.dev/$PROJECT_ID/docker-repo/nginx-app:v1.02', 'hostname']
+  args: 
+  - 'run'
+  - '--rm'
+  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
-logsBucket: 'gs://devops_ci_logs'
+logsBucket: '{_LOG_BUCKET}'
