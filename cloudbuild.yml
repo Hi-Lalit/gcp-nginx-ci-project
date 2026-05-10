@@ -11,9 +11,9 @@ steps:
       REGISTRY_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
 
       echo "Checking image:"
-      echo "$REGISTRY_IMAGE"
+      echo "$$REGISTRY_IMAGE"
 
-      if gcloud artifacts docker images describe "$REGISTRY_IMAGE" >/dev/null 2>&1; then
+      if gcloud artifacts docker images describe "$$REGISTRY_IMAGE" >/dev/null 2>&1; then
         echo "Image exists in Artifact Registry."
       else
         echo "Image does not exist in Artifact Registry."
