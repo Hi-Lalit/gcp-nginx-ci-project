@@ -1,5 +1,8 @@
 steps:
 
+- name: 'bash'
+  args: ['./script.sh']
+
 # Build the Docker image
 
 - name: 'gcr.io/cloud-builders/docker'
