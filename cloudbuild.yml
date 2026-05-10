@@ -28,7 +28,7 @@ steps:
   args: 
   - 'build'
   - '-t'
-  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
   - '.'
 
 # Push the Docker image to Artifact Registry
@@ -38,29 +38,24 @@ steps:
   waitFor: ['build-image']
   args: 
   - 'push'
-  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
-# Print the hostname of the container to verify that the image is working correctly
-
-- name: '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-  entrypoint: '/bin/sh'
-  args: 
-  - '-c'
-  - 'echo "Hostname is: " $(hostname)'
-  
 # Test the image by running it
 
 - name: 'gcr.io/cloud-builders/docker'
   args: 
   - 'run'
   - '--rm'
-  - '{_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - 'sh'
+  - '-c'
+  - 'echo "Hostname is: $$(hostname)"'
 
-logsBucket: '{_LOG_BUCKET}'
+logsBucket: 'gs://${_LOG_BUCKET}'
 
 substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
   _TAG: 'v1.02'
-  _LOG_BUCKET: 'gs://devops_ci_logs'  
+  _LOG_BUCKET: 'devops_ci_logs'
