@@ -1,7 +1,28 @@
 steps:
 
 - name: 'bash'
-  args: ['./script.sh']
+  script: |
+    #!/usr/bin/env bash
+
+    found=false
+
+    images=$(docker images --format "{{.Repository}}:{{.Tag}}")
+
+    echo "Images:"
+    echo "$images"
+
+    for image in $images; do
+      if [[ "$image" == "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}" ]]; then
+        found=true
+        break
+      fi
+    done
+
+    if [ "$found" = true ]; then
+      echo "Image exists in local Docker cache."
+    else
+      echo "Image does not exist in local Docker cache."
+    fi
 
 # Build the Docker image
 
