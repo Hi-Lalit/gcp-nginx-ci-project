@@ -15,30 +15,53 @@ steps:
   id: 'check-layers'
   entrypoint: 'bash'
   args:
-    - '-c'
-    - |
-      # 1. Assignment (No $ on the left side)
-      FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
-      
-      echo "Inspecting: $$FULL_IMAGE_PATH"
 
-      # 2. Command Capture (Use $$ to read the variable)
-      LOCAL_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$$FULL_IMAGE_PATH")
+  - '-c'
+  - |
+    
+    # Define the image you just built
+    NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
-      # 3. Gcloud Check
-      REMOTE_LAYERS=$$(gcloud artifacts docker images describe "$$FULL_IMAGE_PATH" --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
+    # 1. Get the layers of the NEW image (as a single string of hashes)
+    NEW_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$NEW_IMAGE")
 
-      echo "Local:  $$LOCAL_LAYERS"
-      echo "Remote: $$REMOTE_LAYERS"
+    if [ -z "$$NEW_LAYERS" ]; then
+        echo "Error: Could not find layers for $$NEW_IMAGE. Does it exist?"
+        exit 1
+    fi
 
-      if [ -z "$$REMOTE_LAYERS" ]; then
-          echo "Decision: New tag. Pushing."
-      elif [ "$$LOCAL_LAYERS" == "$$REMOTE_LAYERS" ]; then
-          echo "Decision: MATCH. Skipping push."
-          touch /workspace/skip_push
-      else
-          echo "Decision: DIFF. Pushing."
-      fi
+    echo "--------------------------------------------------------"
+    echo "Comparing content layers of: $$NEW_IMAGE"
+    echo "--------------------------------------------------------"
+
+    # 2. Get a list of all other image IDs (excluding the new one itself)
+    # We use 'docker images -q' to get IDs and 'grep -v' to skip the new image's ID
+
+    NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
+    EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID:0:12}")
+
+    MATCH_FOUND=false
+
+    for IMG_ID in $$EXISTING_IMAGE_IDS; do
+        # Get layers of the existing image
+        CURRENT_IMG_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$IMG_ID")
+        
+        # Get the Name/Tag for display purposes
+        IMG_NAME=$$(docker inspect --format='{{index .RepoTags 0}}' "$$IMG_ID")
+
+        # 3. Compare the strings of hashes
+        if [ "$$NEW_LAYERS" == "$$CURRENT_IMG_LAYERS" ]; then
+            echo "[MATCH FOUND] Content is identical to: $$IMG_NAME ($$IMG_ID)"
+            MATCH_FOUND=true
+
+            touch /workspace/skip_push
+            break
+        fi
+    done
+
+    if [ "$$MATCH_FOUND" = false ]; then
+        echo "Result: No images with identical content found. This is a unique build."
+    fi
 
 # 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
