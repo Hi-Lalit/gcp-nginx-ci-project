@@ -18,7 +18,7 @@ steps:
 
 # 2. Check if the newly built layers already exist in the Registry
 
-- name: 'gcr.io/cloud-builders/docker'
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
   id: 'check-layers'
   entrypoint: 'bash'
   args:
@@ -48,7 +48,7 @@ steps:
 
     NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
     EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
-    echo "Existing Image ID is $$NEW_IMAGE_ID"
+    echo "Existing Image ID is: $$NEW_IMAGE_ID"
 
     MATCH_FOUND=false
 
