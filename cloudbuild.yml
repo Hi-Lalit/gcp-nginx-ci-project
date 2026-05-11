@@ -16,25 +16,23 @@ steps:
   args:
     - '-c'
     - |
-      # 1. Define the path. Use ${} for Cloud Build variables.
-      # Use no $ at the start of the line for assignment.
-      FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      # 1. Assignment: Use $$ for the local variable name
+      $$FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
       
-      echo "Inspecting: $FULL_IMAGE_PATH"
+      echo "Inspecting: $$FULL_IMAGE_PATH"
 
-      # 2. Get local layers. 
-      # Inside this bash block, $() is the standard way to run a command.
-      LOCAL_LAYERS=$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$FULL_IMAGE_PATH")
+      # 2. Command Substitution: Use $$ for the variable, but single $ for Docker's format
+      $$LOCAL_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$$FULL_IMAGE_PATH")
 
-      # 3. Get remote layers
-      REMOTE_LAYERS=$(gcloud artifacts docker images describe "$FULL_IMAGE_PATH" --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
+      # 3. Gcloud Check: Use $$ for the variable
+      $$REMOTE_LAYERS=$$(gcloud artifacts docker images describe "$$FULL_IMAGE_PATH" --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
 
-      echo "Local:  $LOCAL_LAYERS"
-      echo "Remote: $REMOTE_LAYERS"
+      echo "Local:  $$LOCAL_LAYERS"
+      echo "Remote: $$REMOTE_LAYERS"
 
-      if [ -z "$REMOTE_LAYERS" ]; then
+      if [ -z "$$REMOTE_LAYERS" ]; then
           echo "Decision: New tag. Pushing."
-      elif [ "$LOCAL_LAYERS" == "$REMOTE_LAYERS" ]; then
+      elif [ "$$LOCAL_LAYERS" == "$$REMOTE_LAYERS" ]; then
           echo "Decision: MATCH. Skipping push."
           touch /workspace/skip_push
       else
