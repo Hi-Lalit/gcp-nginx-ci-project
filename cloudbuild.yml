@@ -2,7 +2,6 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.0${BUILD_COUNTER}'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -13,7 +12,7 @@ steps:
   args: 
   - 'build'
   - '-t'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:v1.0.$BUILD_COUNTER'
   - '.'
 
 # 2. Check if the newly built layers already exist in the Registry
@@ -28,7 +27,7 @@ steps:
     
     # Define the image you just built
 
-    NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+    NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:v1.0.$$BUILD_COUNTER'
 
     # 1. Get the layers of the NEW image (as a single string of hashes)
     
@@ -48,6 +47,7 @@ steps:
 
     NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
     EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
+    echo "Existing Image ID is $$NEW_IMAGE_ID"
 
     MATCH_FOUND=false
 
@@ -82,7 +82,7 @@ steps:
       if [ -f /workspace/skip_push ]; then
         echo "Push skipped."
       else
-        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:v1.0.${_BUILD_COUNTER}
       fi
 
 # 4. Test the image (only if skip file doesn't exist)
