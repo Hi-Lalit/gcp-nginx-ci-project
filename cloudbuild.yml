@@ -78,7 +78,7 @@ steps:
 # 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
-  entrypoint: 'bash'
+  # entrypoint: 'bash'
   args:
     - '-c'
     - |
@@ -91,7 +91,7 @@ steps:
 # 4. Test the image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
-  entrypoint: 'bash'
+  # entrypoint: 'bash'
   args: 
   - '-c'
   - |
