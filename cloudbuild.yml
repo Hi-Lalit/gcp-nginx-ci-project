@@ -16,30 +16,27 @@ steps:
   args:
     - '-c'
     - |
-      # Define the full image path
-      FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      # 1. Define local variables for image path
+      $$FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${_TAG}"
       
-      echo "Inspecting build: $FULL_IMAGE_PATH"
+      echo "Inspecting build: $$FULL_IMAGE_PATH"
 
-      # Get layers of the image we just built locally
-      LOCAL_LAYERS=$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$FULL_IMAGE_PATH")
+      # 2. Get local layers (Fingerprints)
+      # Note: .RootFS.Layers uses single $ because it's inside single quotes for Docker
+      LOCAL_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$$FULL_IMAGE_PATH")
 
-      # Get layers of the image currently in Artifact Registry
-      # Note: We check the specific TAG to see if that version already exists with these layers
-      REMOTE_LAYERS=$(gcloud artifacts docker images describe "$FULL_IMAGE_PATH" \
+      # 3. Get remote layers
+      REMOTE_LAYERS=$$(gcloud artifacts docker images describe "$$FULL_IMAGE_PATH" \
           --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
 
-      if [ -z "$REMOTE_LAYERS" ]; then
-          echo "Decision: Image tag does not exist. Proceeding to push."
-          exit 0
-      elif [ "$LOCAL_LAYERS" == "$REMOTE_LAYERS" ]; then
-          echo "Decision: IDENTICAL LAYERS FOUND. Skipping push and tests."
-          # This 'touch' creates a marker file for the next steps to check
+      if [ -z "$$REMOTE_LAYERS" ]; then
+          echo "Decision: Image tag does not exist in registry. Proceeding."
+      elif [ "$$LOCAL_LAYERS" == "$$REMOTE_LAYERS" ]; then
+          echo "Decision: IDENTICAL LAYERS FOUND. Skipping push."
           touch /workspace/skip_push
       else
-          echo "Decision: CONTENT CHANGED. Proceeding to push."
+          echo "Decision: CONTENT CHANGED. Proceeding."
       fi
-
 # 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
