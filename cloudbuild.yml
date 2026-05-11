@@ -26,52 +26,54 @@ steps:
   - '-c'
   - |
     
-    # Define the image you just built
+    # # Define the image you just built
 
-    NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+    # NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
-    # 1. Get the layers of the NEW image (as a single string of hashes)
+    # # 1. Get the layers of the NEW image (as a single string of hashes)
     
-    NEW_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$NEW_IMAGE")
+    # NEW_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$NEW_IMAGE")
 
-    if [ -z "$$NEW_LAYERS" ]; then
-        echo "Error: Could not find layers for $$NEW_IMAGE. Does it exist?"
-        exit 1
-    fi
+    # if [ -z "$$NEW_LAYERS" ]; then
+    #     echo "Error: Could not find layers for $$NEW_IMAGE. Does it exist?"
+    #     exit 1
+    # fi
 
-    echo "--------------------------------------------------------"
-    echo "Comparing content layers of: $$NEW_IMAGE"
-    echo "--------------------------------------------------------"
+    # echo "--------------------------------------------------------"
+    # echo "Comparing content layers of: $$NEW_IMAGE"
+    # echo "--------------------------------------------------------"
 
-    # 2. Get a list of all other image IDs (excluding the new one itself)
-    # We use 'docker images -q' to get IDs and 'grep -v' to skip the new image's ID
+    # # 2. Get a list of all other image IDs (excluding the new one itself)
+    # # We use 'docker images -q' to get IDs and 'grep -v' to skip the new image's ID
 
-    NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
-    EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
+    # NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
+    # EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
+    
+    EXISTING_IMAGE_IDS=$$(docker images -q)
     echo "Existing Image ID is: $$NEW_IMAGE_ID"
 
-    MATCH_FOUND=false
+    # MATCH_FOUND=false
 
-    for IMG_ID in $$EXISTING_IMAGE_IDS; do
-        # Get layers of the existing image
-        CURRENT_IMG_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$IMG_ID")
+    # for IMG_ID in $$EXISTING_IMAGE_IDS; do
+    #     # Get layers of the existing image
+    #     CURRENT_IMG_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$IMG_ID")
         
-        # Get the Name/Tag for display purposes
-        IMG_NAME=$$(docker inspect --format='{{index .RepoTags 0}}' "$$IMG_ID")
+    #     # Get the Name/Tag for display purposes
+    #     IMG_NAME=$$(docker inspect --format='{{index .RepoTags 0}}' "$$IMG_ID")
 
-        # 3. Compare the strings of hashes
-        if [ "$$NEW_LAYERS" == "$$CURRENT_IMG_LAYERS" ]; then
-            echo "[MATCH FOUND] Content is identical to: $$IMG_NAME ($$IMG_ID)"
-            MATCH_FOUND=true
+    #     # 3. Compare the strings of hashes
+    #     if [ "$$NEW_LAYERS" == "$$CURRENT_IMG_LAYERS" ]; then
+    #         echo "[MATCH FOUND] Content is identical to: $$IMG_NAME ($$IMG_ID)"
+    #         MATCH_FOUND=true
 
-            touch /workspace/skip_push
-            break
-        fi
-    done
+    #         touch /workspace/skip_push
+    #         break
+    #     fi
+    # done
 
-    if [ "$$MATCH_FOUND" = false ]; then
-        echo "Result: No images with identical content found. This is a unique build."
-    fi
+    # if [ "$$MATCH_FOUND" = false ]; then
+    #     echo "Result: No images with identical content found. This is a unique build."
+    # fi
 
 # 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
