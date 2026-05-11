@@ -97,5 +97,5 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.0-$BUILD_ID'
+  _TAG: 'v1.0-${BUILD_ID}'
   _LOG_BUCKET: 'devops_ci_logs'
