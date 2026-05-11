@@ -20,9 +20,11 @@ steps:
   - |
     
     # Define the image you just built
+
     NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
 
     # 1. Get the layers of the NEW image (as a single string of hashes)
+    
     NEW_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$NEW_IMAGE")
 
     if [ -z "$$NEW_LAYERS" ]; then
@@ -95,5 +97,5 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.02'
+  _TAG: 'v1.0-$BUILD_ID'
   _LOG_BUCKET: 'devops_ci_logs'
