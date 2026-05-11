@@ -10,33 +10,37 @@ steps:
   - '.'
 
 # 2. Check if the newly built layers already exist in the Registry
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+- name: 'gcr.io/cloud-builders/docker'
   id: 'check-layers'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # 1. Define local variables for image path
-      $$FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      # 1. Define the path. Use ${} for Cloud Build variables.
+      # Use no $ at the start of the line for assignment.
+      FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
       
-      echo "Inspecting build: $$FULL_IMAGE_PATH"
+      echo "Inspecting: $FULL_IMAGE_PATH"
 
-      # 2. Get local layers (Fingerprints)
-      # Note: .RootFS.Layers uses single $ because it's inside single quotes for Docker
-      LOCAL_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$$FULL_IMAGE_PATH")
+      # 2. Get local layers. 
+      # Inside this bash block, $() is the standard way to run a command.
+      LOCAL_LAYERS=$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$FULL_IMAGE_PATH")
 
       # 3. Get remote layers
-      REMOTE_LAYERS=$$(gcloud artifacts docker images describe "$$FULL_IMAGE_PATH" \
-          --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
+      REMOTE_LAYERS=$(gcloud artifacts docker images describe "$FULL_IMAGE_PATH" --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
 
-      if [ -z "$$REMOTE_LAYERS" ]; then
-          echo "Decision: Image tag does not exist in registry. Proceeding."
-      elif [ "$$LOCAL_LAYERS" == "$$REMOTE_LAYERS" ]; then
-          echo "Decision: IDENTICAL LAYERS FOUND. Skipping push."
+      echo "Local:  $LOCAL_LAYERS"
+      echo "Remote: $REMOTE_LAYERS"
+
+      if [ -z "$REMOTE_LAYERS" ]; then
+          echo "Decision: New tag. Pushing."
+      elif [ "$LOCAL_LAYERS" == "$REMOTE_LAYERS" ]; then
+          echo "Decision: MATCH. Skipping push."
           touch /workspace/skip_push
       else
-          echo "Decision: CONTENT CHANGED. Proceeding."
+          echo "Decision: DIFF. Pushing."
       fi
+      
 # 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
