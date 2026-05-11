@@ -40,7 +40,7 @@ steps:
     # We use 'docker images -q' to get IDs and 'grep -v' to skip the new image's ID
 
     NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
-    EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID:0:12}")
+    EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
 
     MATCH_FOUND=false
 
@@ -97,5 +97,5 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.0-${BUILD_ID}'
+  _TAG: 'v1.0-${BUILD_COUNTER}'
   _LOG_BUCKET: 'devops_ci_logs'
