@@ -1,3 +1,10 @@
+substitutions:
+  _REGION: 'us-east1'
+  _REPOSITORY: 'docker-repo'
+  _IMAGE: 'nginx-app'
+  _TAG: 'v1.0$BUILD_COUNTER'
+  _LOG_BUCKET: 'devops_ci_logs'
+
 steps:
 # 1. Build the Docker image first (so we have local layers to inspect)
 - name: 'gcr.io/cloud-builders/docker'
@@ -92,10 +99,3 @@ steps:
       fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
-
-substitutions:
-  _REGION: 'us-east1'
-  _REPOSITORY: 'docker-repo'
-  _IMAGE: 'nginx-app'
-  _TAG: 'v1.0-${BUILD_COUNTER}'
-  _LOG_BUCKET: 'devops_ci_logs'
