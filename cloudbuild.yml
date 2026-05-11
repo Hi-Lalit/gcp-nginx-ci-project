@@ -6,15 +6,31 @@ substitutions:
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-# 1. Build the Docker image first (so we have local layers to inspect)
+
 - name: 'gcr.io/cloud-builders/docker'
   id: 'build-image'
-  dir: 'app'
-  args: 
-  - 'build'
-  - '-t'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-  - '.'
+  args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
+
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image'
+  args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}']
+
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'test-image'
+  args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
+
+logsBucket: 'gs://${_LOG_BUCKET}'
+
+
+# 1. Build the Docker image first (so we have local layers to inspect)
+# - name: 'gcr.io/cloud-builders/docker'
+#   id: 'build-image'
+#   dir: 'app'
+#   args: 
+#   - 'build'
+#   - '-t'
+#   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+#   - '.'
 
 # 2. Check if the newly built layers already exist in the Registry
 
@@ -76,29 +92,28 @@ steps:
     # fi
 
 # 3. Push the Docker image (only if skip file doesn't exist)
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'push-image'
-  # entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      # if [ -f /workspace/skip_push ]; then
-      #   echo "Push skipped."
-      # else
-      ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
-      # fi
+# - name: 'gcr.io/cloud-builders/docker'
+#   id: 'push-image'
+#   # entrypoint: 'bash'
+#   args:
+#     - '-c'
+#     - |
+#       # if [ -f /workspace/skip_push ]; then
+#       #   echo "Push skipped."
+#       # else
+#       ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
+#       # fi
 
-# 4. Test the image (only if skip file doesn't exist)
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'test-image'
-  # entrypoint: 'bash'
-  args: 
-  - '-c'
-  - |
-    # if [ -f /workspace/skip_push ]; then
-    #   echo "Tests skipped."
-    # else
-    ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'sh', '-c', 'echo "Hostname is: $(hostname)"']
-    # fi
+# # 4. Test the image (only if skip file doesn't exist)
+# - name: 'gcr.io/cloud-builders/docker'
+#   id: 'test-image'
+#   # entrypoint: 'bash'
+#   args: 
+#   - '-c'
+#   - |
+#     # if [ -f /workspace/skip_push ]; then
+#     #   echo "Tests skipped."
+#     # else
+#     ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'sh', '-c', 'echo "Hostname is: $(hostname)"']
+#     # fi
 
-logsBucket: 'gs://${_LOG_BUCKET}'
