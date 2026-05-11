@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.02'
+  _TAG: 'v1.01'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -10,7 +10,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   id: 'build-image'
   dir: 'app'
-  args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
+  args: ['build', '--no-cache', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
 
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
