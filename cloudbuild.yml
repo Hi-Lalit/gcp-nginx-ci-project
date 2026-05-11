@@ -1,26 +1,5 @@
 steps:
-
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: 'check-image'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      #!/usr/bin/env bash
-
-      REGISTRY_IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
-
-      echo "Checking image:"
-      echo "$$REGISTRY_IMAGE"
-
-      if gcloud artifacts docker images describe "$$REGISTRY_IMAGE" >/dev/null 2>&1; then
-        echo "Image exists in Artifact Registry."
-      else
-        echo "Image does not exist in Artifact Registry."
-      fi
-
-# Build the Docker image
-
+# 1. Build the Docker image first (so we have local layers to inspect)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'build-image'
   dir: 'app'
@@ -30,24 +9,62 @@ steps:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
   - '.'
 
-# Push the Docker image to Artifact Registry
+# 2. Check if the newly built layers already exist in the Registry
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'check-layers'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      # Define the full image path
+      FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      
+      echo "Inspecting build: $FULL_IMAGE_PATH"
 
+      # Get layers of the image we just built locally
+      LOCAL_LAYERS=$(docker inspect --format='{{range .RootFS.Layers}}{{.}}{{end}}' "$FULL_IMAGE_PATH")
+
+      # Get layers of the image currently in Artifact Registry
+      # Note: We check the specific TAG to see if that version already exists with these layers
+      REMOTE_LAYERS=$(gcloud artifacts docker images describe "$FULL_IMAGE_PATH" \
+          --format='value(layer_sources.digest)' 2>/dev/null | tr -d '\n')
+
+      if [ -z "$REMOTE_LAYERS" ]; then
+          echo "Decision: Image tag does not exist. Proceeding to push."
+          exit 0
+      elif [ "$LOCAL_LAYERS" == "$REMOTE_LAYERS" ]; then
+          echo "Decision: IDENTICAL LAYERS FOUND. Skipping push and tests."
+          # This 'touch' creates a marker file for the next steps to check
+          touch /workspace/skip_push
+      else
+          echo "Decision: CONTENT CHANGED. Proceeding to push."
+      fi
+
+# 3. Push the Docker image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'push-image'
-  args: 
-  - 'push'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      if [ -f /workspace/skip_push ]; then
+        echo "Push skipped."
+      else
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      fi
 
-# Test the image by running it
-
+# 4. Test the image (only if skip file doesn't exist)
 - name: 'gcr.io/cloud-builders/docker'
+  id: 'test-image'
+  entrypoint: 'bash'
   args: 
-  - 'run'
-  - '--rm'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-  - 'sh'
   - '-c'
-  - 'echo "Hostname is: $$(hostname)"'
+  - |
+      if [ -f /workspace/skip_push ]; then
+        echo "Tests skipped."
+      else
+        docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} sh -c 'echo "Hostname is: $(hostname)"'
+      fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
 
