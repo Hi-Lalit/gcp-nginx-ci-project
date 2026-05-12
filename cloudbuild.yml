@@ -4,7 +4,6 @@ substitutions:
   _IMAGE: 'nginx-app'
   _TAG: 'v1.03'
   _LOG_BUCKET: 'devops_ci_logs'
-  _SUB_DIR: 'app'
 
 steps:
 
@@ -12,13 +11,14 @@ steps:
 - name: 'gcr.io/kaniko-project/executor:latest'
   id: 'build-only'
   args:
-    - --context=dir://${_SUB_DIR}
-    - --dockerfile=Dockerfile
+    - --context=dir://app
     - --no-push
     - --tar-path=image.tar
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
     - --cache=true
     - --cache-ttl=168h
+    # Point this to a 'cache' folder in your repository
+    - --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache
     - --reproducible=true
 
 # Step 2: Push the tarball to the Artifact Registry
