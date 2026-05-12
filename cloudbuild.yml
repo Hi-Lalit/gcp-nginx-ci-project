@@ -24,7 +24,7 @@ steps:
   - 'docker'
   - 'images'
   - 'list'
-  - 'LOCATION-docker.pkg.dev/PROJECT-ID/REPOSITORY'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}'
 
 
 # 3. Inspect the image to verify RootFS layers (Focusing on the layers list)
