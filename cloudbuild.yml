@@ -6,27 +6,22 @@ substitutions:
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-# 1. Build and Push using Kaniko with Reproducible flag
+# 1. Build and Push in ONE step with caching and timestamp rewriting
 - name: 'gcr.io/cloud-builders/docker'
   id: 'build-reproducible'
   dir: 'app'
   env:
-    - 'DOCKER_BUILDKIT=1' # Enable advanced features
+    - 'DOCKER_BUILDKIT=1'
   args: [
-    'build', 
-    '--build-arg', 'SOURCE_DATE_EPOCH=0', # Forces a fixed timestamp
-    '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 
+    'buildx', 'build',
+    '--build-arg', 'SOURCE_DATE_EPOCH=0',
+    '--cache-from', 'type=registry,ref=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:cache',
+    '--cache-to', 'type=registry,ref=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:cache,mode=max',
+    '--output', 'type=image,name=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG},push=true,rewrite-timestamp=true',
     '.'
   ]
-# 2. Push the image to Artifact Registry
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'push-image'
-  args: [
-    'push', 
-    '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-  ]
 
-# 3. Inspect the image to verify RootFS layers (Focusing on the layers list)
+# 2. Inspect the image to verify RootFS layers
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
@@ -37,7 +32,7 @@ steps:
       echo "--- ROOTFS LAYERS ---"
       docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-# 4. Run functional tests
+# 3. Run functional tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
