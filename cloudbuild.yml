@@ -25,28 +25,29 @@ steps:
   args:
     - '-c'
     - |
-      DIGEST=$(cat /workspace/digest.txt)
+      # Use $$ for bash variables
+      DIGEST=$$(cat /workspace/digest.txt)
       IMAGE_BASE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}"
       
-      echo "Checking if digest $DIGEST exists..."
+      echo "Checking if digest $$DIGEST exists in registry..."
       
       # Check if any version in the registry has this digest
-      EXISTS=$(gcloud artifacts docker images list $IMAGE_BASE --filter="version=$DIGEST" --format="value(version)")
+      EXISTS=$$(gcloud artifacts docker images list $$IMAGE_BASE --filter="version=$$DIGEST" --format="value(version)")
       
-      if [ "$EXISTS" == "$DIGEST" ]; then
+      if [ "$$EXISTS" == "$$DIGEST" ]; then
         echo ">>> Image content already exists in registry. Skipping push."
       else
         echo ">>> New content detected. Pushing image..."
-        # Use Kaniko to push the tarball created in Step 1
-        /kaniko/executor --context=tar:///workspace/image.tar --destination=$IMAGE_BASE:${_TAG}
+        # Run kaniko executor from its container to push the tarball
+        /kaniko/executor --context=tar:///workspace/image.tar --destination=$$IMAGE_BASE:${_TAG}
       fi
 
 # 3. List all images for visibility
-- name: 'gcr.io/cloud-builders/gcloud'
+- name: 'gcr.io/://google.com'
   id: 'list-all-images'
-  args: ['artifacts', 'docker', 'images', 'list', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}', '--include-tags']
+  args: ['gcloud', 'artifacts', 'docker', 'images', 'list', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}', '--include-tags']
 
-# 4. Inspect the image (pulls the image we just verified/pushed)
+# 4. Inspect the image (pulls the image for verification)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
@@ -63,102 +64,3 @@ steps:
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
 
 logsBucket: 'gs://${_LOG_BUCKET}'
-
-
-
-
-# 1. Build the Docker image first (so we have local layers to inspect)
-# - name: 'gcr.io/cloud-builders/docker'
-#   id: 'build-image'
-#   dir: 'app'
-#   args: 
-#   - 'build'
-#   - '-t'
-#   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-#   - '.'
-
-# 2. Check if the newly built layers already exist in the Registry
-
-# - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-#   id: 'check-layers'
-#   entrypoint: 'bash'
-#   args:
-
-#   - '-c'
-#   - |
-    
-    # # Define the image you just built
-
-    # NEW_IMAGE='${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
-
-    # # 1. Get the layers of the NEW image (as a single string of hashes)
-    
-    # NEW_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$NEW_IMAGE")
-
-    # if [ -z "$$NEW_LAYERS" ]; then
-    #     echo "Error: Could not find layers for $$NEW_IMAGE. Does it exist?"
-    #     exit 1
-    # fi
-
-    # echo "--------------------------------------------------------"
-    # echo "Comparing content layers of: $$NEW_IMAGE"
-    # echo "--------------------------------------------------------"
-
-    # # 2. Get a list of all other image IDs (excluding the new one itself)
-    # # We use 'docker images -q' to get IDs and 'grep -v' to skip the new image's ID
-
-    # NEW_IMAGE_ID=$$(docker inspect --format='{{.Id}}' "$$NEW_IMAGE")
-    # EXISTING_IMAGE_IDS=$$(docker images -q | grep -v "$${NEW_IMAGE_ID}")
-
-    # EXISTING_IMAGE_IDS=$$(docker images -q)
-    # echo "Existing Image ID is: $$NEW_IMAGE_ID"
-
-    # MATCH_FOUND=false
-
-    # for IMG_ID in $$EXISTING_IMAGE_IDS; do
-    #     # Get layers of the existing image
-    #     CURRENT_IMG_LAYERS=$$(docker inspect --format='{{range .RootFS.Layers}}{{println .}}{{end}}' "$$IMG_ID")
-        
-    #     # Get the Name/Tag for display purposes
-    #     IMG_NAME=$$(docker inspect --format='{{index .RepoTags 0}}' "$$IMG_ID")
-
-    #     # 3. Compare the strings of hashes
-    #     if [ "$$NEW_LAYERS" == "$$CURRENT_IMG_LAYERS" ]; then
-    #         echo "[MATCH FOUND] Content is identical to: $$IMG_NAME ($$IMG_ID)"
-    #         MATCH_FOUND=true
-
-    #         touch /workspace/skip_push
-    #         break
-    #     fi
-    # done
-
-    # if [ "$$MATCH_FOUND" = false ]; then
-    #     echo "Result: No images with identical content found. This is a unique build."
-    # fi
-
-# 3. Push the Docker image (only if skip file doesn't exist)
-# - name: 'gcr.io/cloud-builders/docker'
-#   id: 'push-image'
-#   # entrypoint: 'bash'
-#   args:
-#     - '-c'
-#     - |
-#       # if [ -f /workspace/skip_push ]; then
-#       #   echo "Push skipped."
-#       # else
-#       ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
-#       # fi
-
-# # 4. Test the image (only if skip file doesn't exist)
-# - name: 'gcr.io/cloud-builders/docker'
-#   id: 'test-image'
-#   # entrypoint: 'bash'
-#   args: 
-#   - '-c'
-#   - |
-#     # if [ -f /workspace/skip_push ]; then
-#     #   echo "Tests skipped."
-#     # else
-#     ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'sh', '-c', 'echo "Hostname is: $(hostname)"']
-#     # fi
-
