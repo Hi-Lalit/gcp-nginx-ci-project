@@ -1,6 +1,3 @@
-# Add this at the top for reproducibility
-ARG SOURCE_DATE_EPOCH=0
-
 FROM nginx:trixie-perl
 
 COPY index.html /usr/share/nginx/html/index.html

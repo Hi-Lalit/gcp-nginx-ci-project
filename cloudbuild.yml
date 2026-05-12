@@ -6,22 +6,17 @@ substitutions:
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-# 1. Build and Push in ONE step with caching and timestamp rewriting
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'build-reproducible'
-  dir: 'app'
-  env:
-    - 'DOCKER_BUILDKIT=1'
-  args: [
-    'buildx', 'build',
-    '--build-arg', 'SOURCE_DATE_EPOCH=0',
-    '--cache-from', 'type=registry,ref=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:cache',
-    '--cache-to', 'type=registry,ref=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:cache,mode=max',
-    '--output', 'type=image,name=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG},push=true,rewrite-timestamp=true',
-    '.'
-  ]
+# 1. Build and Push using Kaniko with Reproducible flag
+- name: 'gcr.io/kaniko-project/executor:latest'
+  id: 'build-and-push'
+  args:
+    - --context=dir://app
+    - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+    - --cache=true
+    - --cache-ttl=168h
+    - --reproducible=true  # <--- CRITICAL: Strips timestamps to keep SHA-256 consistent
 
-# 2. Inspect the image to verify RootFS layers
+# 2. Inspect the image to verify RootFS layers (Focusing on the layers list)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
