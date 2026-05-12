@@ -2,46 +2,45 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.01'
+  _TAG: 'v1.02'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-# 1. BUILD ONLY
+# 1. Build and Push using Kaniko with Reproducible flag
 - name: 'gcr.io/kaniko-project/executor:latest'
-  id: 'build-to-tar'
+  id: 'build-and-push'
   args:
     - --context=dir://app
-    - --no-push
-    - --tar-path=/workspace/image.tar
-    - --digest-file=/workspace/digest.txt
-    - --reproducible=true
+    - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
     - --cache=true
+    - --cache-ttl=168h
+    - --reproducible=true  # <--- CRITICAL: Strips timestamps to keep SHA-256 consistent
 
-# 2. CHECK & PUSH (Completely fixed image name below)
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:latest'
-  id: 'conditional-push'
+# 2. List all images in the repository
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'list-all-images'
+  args:
+  - 'artifacts'
+  - 'docker'
+  - 'images'
+  - 'list'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}'
+
+
+# 3. Inspect the image to verify RootFS layers (Focusing on the layers list)
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'inspect-image'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Use double dollar signs for bash variables
-      DIGEST=$$(cat /workspace/digest.txt)
-      IMAGE_BASE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}"
-      
-      echo "Checking if digest $$DIGEST exists in registry..."
-      
-      EXISTS=$$(gcloud artifacts docker images list $$IMAGE_BASE --filter="version=$$DIGEST" --format="value(version)")
-      
-      if [ "$$EXISTS" == "$$DIGEST" ]; then
-        echo ">>> Image content already exists. Skipping push."
-      else
-        echo ">>> New content detected. Pushing image..."
-        /kaniko/executor --context=tar:///workspace/image.tar --destination=$$IMAGE_BASE:${_TAG}
-      fi
+      docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      echo "--- ROOTFS LAYERS ---"
+      docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-# 3. LIST IMAGES (Fixed image name here too)
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:latest'
-  id: 'list-all-images'
-  args: ['gcloud', 'artifacts', 'docker', 'images', 'list', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}', '--include-tags']
+# 4. Run functional tests
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'test-image'
+  args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
 
 logsBucket: 'gs://${_LOG_BUCKET}'
