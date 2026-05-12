@@ -2,19 +2,23 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.04'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
 # 1. Build and Push using Kaniko with Reproducible flag
-- name: 'gcr.io/kaniko-project/executor:latest'
-  id: 'build-and-push'
-  args:
-    - --context=dir://app
-    - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-    - --cache=true
-    - --cache-ttl=168h
-    - --reproducible=true  # <--- CRITICAL: Strips timestamps to keep SHA-256 consistent
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-reproducible'
+  dir: 'app'
+  env:
+    - 'DOCKER_BUILDKIT=1' # Enable advanced features
+  args: [
+    'build', 
+    '--build-arg', 'SOURCE_DATE_EPOCH=0', # Forces a fixed timestamp
+    '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 
+    '.'
+  ]
+
 
 # 2. Inspect the image to verify RootFS layers (Focusing on the layers list)
 - name: 'gcr.io/cloud-builders/docker'
