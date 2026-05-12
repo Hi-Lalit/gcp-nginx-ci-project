@@ -4,6 +4,7 @@ substitutions:
   _IMAGE: 'nginx-app'
   _TAG: 'v1.03'
   _LOG_BUCKET: 'devops_ci_logs'
+  _SUB_DIR: 'app'
 
 steps:
 
@@ -11,7 +12,8 @@ steps:
 - name: 'gcr.io/kaniko-project/executor:latest'
   id: 'build-only'
   args:
-    - --context=dir://app
+    - --context=dir://${_SUB_DIR}
+    - --dockerfile=Dockerfile
     - --no-push
     - --tar-path=image.tar
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
