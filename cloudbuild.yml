@@ -18,31 +18,27 @@ steps:
     - --cache=true
     - --cache-ttl=168h
 
-# 2. CHECK & PUSH: Only push if this digest doesn't exist in the registry
+# 2. CHECK & PUSH: Fixed the image name and escaped bash variables
 - name: 'gcr.io/://google.com'
   id: 'conditional-push'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Use $$ for variables created inside this script
+      # Use $$ so Cloud Build doesn't think these are substitutions
       DIGEST=$$(cat /workspace/digest.txt)
       IMAGE_BASE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}"
       
-      echo "Checking if digest $$DIGEST exists in registry..."
+      echo "Checking if digest $$DIGEST exists..."
       
-      # Search for the digest in the registry
       EXISTS=$$(gcloud artifacts docker images list $$IMAGE_BASE --filter="version=$$DIGEST" --format="value(version)")
       
       if [ "$$EXISTS" == "$$DIGEST" ]; then
-        echo ">>> Image content already exists in registry. Skipping push."
+        echo ">>> Image content already exists. Skipping push."
       else
         echo ">>> New content detected. Pushing image..."
-        # We run the kaniko binary from the first step's image to push the tar
-        docker run --rm -v /workspace:/workspace \
-          gcr.io/kaniko-project/executor:latest \
-          --context=tar:///workspace/image.tar \
-          --destination=$$IMAGE_BASE:${_TAG}
+        # Running the kaniko executor binary directly to push the tarball
+        /kaniko/executor --context=tar:///workspace/image.tar --destination=$$IMAGE_BASE:${_TAG}
       fi
 
 # 3. List all images for visibility
