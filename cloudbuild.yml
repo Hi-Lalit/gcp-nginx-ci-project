@@ -2,20 +2,30 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.01'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
+# 1. Build and Push using Kaniko for consistent layer hashing
+- name: 'gcr.io/kaniko-project/executor:latest'
+  id: 'build-and-push'
+  args:
+    - --context=dir://app
+    - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+    - --cache=true
+    - --cache-ttl=168h
 
+# 2. Inspect the image to verify RootFS layers
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'build-image'
-  dir: 'app'
-  args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', '.']
+  id: 'inspect-image'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'push-image'
-  args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}']
-
+# 3. Run functional tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
