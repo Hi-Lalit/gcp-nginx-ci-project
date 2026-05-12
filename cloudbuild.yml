@@ -25,21 +25,24 @@ steps:
   args:
     - '-c'
     - |
-      # Use $$ for bash variables
+      # Use $$ for variables created inside this script
       DIGEST=$$(cat /workspace/digest.txt)
       IMAGE_BASE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}"
       
       echo "Checking if digest $$DIGEST exists in registry..."
       
-      # Check if any version in the registry has this digest
+      # Search for the digest in the registry
       EXISTS=$$(gcloud artifacts docker images list $$IMAGE_BASE --filter="version=$$DIGEST" --format="value(version)")
       
       if [ "$$EXISTS" == "$$DIGEST" ]; then
         echo ">>> Image content already exists in registry. Skipping push."
       else
         echo ">>> New content detected. Pushing image..."
-        # Run kaniko executor from its container to push the tarball
-        /kaniko/executor --context=tar:///workspace/image.tar --destination=$$IMAGE_BASE:${_TAG}
+        # We run the kaniko binary from the first step's image to push the tar
+        docker run --rm -v /workspace:/workspace \
+          gcr.io/kaniko-project/executor:latest \
+          --context=tar:///workspace/image.tar \
+          --destination=$$IMAGE_BASE:${_TAG}
       fi
 
 # 3. List all images for visibility
@@ -47,7 +50,7 @@ steps:
   id: 'list-all-images'
   args: ['gcloud', 'artifacts', 'docker', 'images', 'list', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}', '--include-tags']
 
-# 4. Inspect the image (pulls the image for verification)
+# 4. Inspect the image (pulls for verification)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
