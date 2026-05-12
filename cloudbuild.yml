@@ -18,9 +18,15 @@ steps:
     '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 
     '.'
   ]
+# 2. Push the image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image'
+  args: [
+    'push', 
+    '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  ]
 
-
-# 2. Inspect the image to verify RootFS layers (Focusing on the layers list)
+# 3. Inspect the image to verify RootFS layers (Focusing on the layers list)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
@@ -31,7 +37,7 @@ steps:
       echo "--- ROOTFS LAYERS ---"
       docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-# 3. Run functional tests
+# 4. Run functional tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
