@@ -6,7 +6,7 @@ substitutions:
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-# 1. BUILD ONLY: Build to a tarball and save the content digest
+# 1. BUILD ONLY
 - name: 'gcr.io/kaniko-project/executor:latest'
   id: 'build-to-tar'
   args:
@@ -18,14 +18,13 @@ steps:
     - --cache=true
     - --cache-ttl=168h
 
-# 2. CHECK & PUSH: Fixed the image name and escaped bash variables
+# 2. CHECK & PUSH - FIX: Changed 'gcr.io/://google.com' to the valid SDK image
 - name: 'gcr.io/://google.com'
   id: 'conditional-push'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Use $$ so Cloud Build doesn't think these are substitutions
       DIGEST=$$(cat /workspace/digest.txt)
       IMAGE_BASE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}"
       
@@ -37,16 +36,19 @@ steps:
         echo ">>> Image content already exists. Skipping push."
       else
         echo ">>> New content detected. Pushing image..."
-        # Running the kaniko executor binary directly to push the tarball
-        /kaniko/executor --context=tar:///workspace/image.tar --destination=$$IMAGE_BASE:${_TAG}
+        # We run the kaniko binary from step 1's image to push the tar
+        docker run --rm -v /workspace:/workspace \
+          gcr.io/kaniko-project/executor:latest \
+          --context=tar:///workspace/image.tar \
+          --destination=$$IMAGE_BASE:${_TAG}
       fi
 
-# 3. List all images for visibility
+# 3. List all images - FIX: Changed 'gcr.io/://google.com' to the valid SDK image
 - name: 'gcr.io/://google.com'
   id: 'list-all-images'
   args: ['gcloud', 'artifacts', 'docker', 'images', 'list', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}', '--include-tags']
 
-# 4. Inspect the image (pulls for verification)
+# 4. Inspect the image
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
