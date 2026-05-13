@@ -50,7 +50,7 @@ steps:
     for VERSION in $(gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY} --format='value(version)'); do
         
         # Construct the full remote image URI using the digest/version
-        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}@${VERSION}"
+        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${_TAG}"
         
         # Step 2: Use docker manifest to read remote layers without downloading the whole image
         # Extract layers, sort them, join them with a space, and append to the text file
