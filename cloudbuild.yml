@@ -6,89 +6,14 @@ substitutions:
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
-
-# Step 1: Build the image and save to a tarball (no push)
-- name: 'gcr.io/kaniko-project/executor:latest'
-  id: 'build-only'
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: bash
   args:
-    - --context=dir://app
-    - --no-push
-    - --tar-path=/workspace/image.tar
-    - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-    - --cache=true
-    - --cache-ttl=168h
-    # Point this to a 'cache' folder in your repository
-    - --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache
-    - --reproducible=true
+  - '-c'
+  - |
+    Digest_list=$(gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY} --format='get(DIGEST)')
 
-# Step 2: Load image into Docker
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'load-image'
-  args:
-    - 'load'
-    - '-i'
-    - '/workspace/image.tar'
-
-# Step 3: Push the tarball to the Artifact Registry
-
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'conditional-push'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      set -e
-      set -o pipefail
-
-      Target_Image=$$(docker images --format "{{.Digest}}" ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG})
-      
-      if [ -z "$$Target_Image" ]; then
-        echo "Failed to retrieve the target image digest. Please check if the image was built successfully."
-        exit 1
-      fi
-
-      found=false
-
-      images_in_repo=$$(docker images --format "{{.Digest}}")
-
-      for img in $$images_in_repo; do
-        if [[ "$$img" == *"$$Target_Image"* ]]; then
-          echo "This image already exists in the local repository. Skipping push."
-          found=true
-          break
-        fi
-      done
-
-      if [ "$$found" = false ]; then
-        echo "Pushing new image to Artifact Registry..."        
-        docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
-      fi
-
-# Step 4: List all images in the repository
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: 'list-all-images'
-  args:
-  - 'artifacts'
-  - 'docker'
-  - 'images'
-  - 'list'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}'
-
-
-# Step 5: Inspect the image to verify RootFS layers (Focusing on the layers list)
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'inspect-image'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-      echo "--- ROOTFS LAYERS ---"
-      docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-
-# Step 6: Run functional tests
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'test-image'
-  args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
+    echo "Digest_list:"
+    echo "${Digest_list}"
 
 logsBucket: 'gs://${_LOG_BUCKET}'
