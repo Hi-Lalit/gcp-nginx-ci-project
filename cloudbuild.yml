@@ -30,7 +30,13 @@ steps:
     - '-c'
     - |
       docker load -i /workspace/image.tar
+
+      apt-get update -qq && apt-get install -y -qq jq
+
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
       
+      echo "Extracting RootFS layers and saving to latest_rootfs.txt"
+
       docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | jq -r '.[] | .RootFS.Layers | sort | join(" ")' > /workspace/latest_rootfs.txt
 
       echo "Latest Image Digest:"
