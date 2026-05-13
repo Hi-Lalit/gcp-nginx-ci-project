@@ -27,16 +27,20 @@ steps:
   id: 'load-image'
   entrypoint: 'bash'
   args:
-    - '-c'
-    - |
-      docker load -i /workspace/image.tar
+  - '-c'
+  - |
+    docker load -i /workspace/image.tar
 
-      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} \
-        --format='{{.Id}}' \
-        > /workspace/latest_digest.txt
+    docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} \
+      --format='{{.Id}}' \
+      > /workspace/latest_digest.txt
 
-      echo "Latest Image Digest:"
-      cat /workspace/latest_digest.txt
+    echo "Latest Image Digest:"
+    cat /workspace/latest_digest.txt
+
+    echo "docker inspect output:"
+    docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+
 
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
   id: 'list-existing-digest-of-images'
@@ -49,6 +53,12 @@ steps:
     echo "Existing Image Digests in Repository:"
     cat /workspace/repo_digests.txt
 
+    echo "docker images output:"
+    docker images
+
+    echo "docker inspect output:"
+    docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+
 # Step 3: Push the tarball to the Artifact Registry
 
 - name: 'gcr.io/cloud-builders/docker'
@@ -60,9 +70,15 @@ steps:
       set -e
       set -o pipefail
 
+      echo "docker inspect output:"
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+
       Target_Image="$$(cat /workspace/latest_digest.txt)"
 
       echo "Target Image Digest: $$Target_Image"
+
+      echo "docker images output:"
+      docker images
       
       if [ -z "$$Target_Image" ]; then
         echo "Failed to retrieve the target image digest. Please check if the image was built successfully."
