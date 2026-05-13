@@ -43,29 +43,21 @@ steps:
       cat /workspace/latest_rootfs.txt
 
 # Step 3: List existing RootFS layers of images in the repository
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'Getting the RootFS layers of existing images in the repository'
-  entrypoint: bash
+- name: 'gcr.io/go-containerregistry/crane'
+  id: 'Fetch Remote RootFS Layers'
+  entrypoint: 'sh'
   args:
   - '-c'
   - |
-    apt-get update -qq && apt-get install -y -qq jq
-
-    echo "Getting Id of all images in the repository"
-
-    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} --format="value(version)" > /workspace/image_ids.txt
-
-    echo "Image IDs in the repository:"
-
-    Image_IDs=$(cat /workspace/image_ids.txt)
+    IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
     
-    for image_id in $Image_IDs; do
-      docker inspect $image_id | jq -r '.[] | .RootFS.Layers | sort | join(" ")' >> /workspace/repo_rootfs.txt
-    done
+    # Extracts the exact layer hashes directly from the remote configuration file
+    crane config $IMAGE_PATH | jq -r '.rootfs.diff_ids | sort | join(" ")' > /workspace/repo_rootfs.txt
+    
+    repo_rootfs=$(cat /workspace/repo_rootfs.txt)
 
     echo "Existing RootFS layers in the repository:"
-    cat /workspace/repo_rootfs.txt
-
-  
+    
+    echo "$repo_rootfs"
 
 logsBucket: 'gs://${_LOG_BUCKET}'
