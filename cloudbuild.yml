@@ -28,25 +28,25 @@ steps:
       - '-c'
       - |
         set -e
-        # Load the image and extract the Loaded image ID dynamically
+        # Load the image archive
         LOAD_OUTPUT=$(docker load -i /workspace/image.tar)
         echo "$$LOAD_OUTPUT"
         
-        # Tag the loaded image explicitly to ensure docker inspect finds it cleanly
+        # Tag the image cleanly so Docker daemon knows exactly what it is referencing
         docker tag ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} latest-local-build:test
         
-        # Generate a flattened, comma-separated, sorted baseline string of local layers
+        # FIXED: Removed 'tr' translation block. Keeps this as a true clean multi-line array.
         docker inspect latest-local-build:test \
-          --format='{{range .RootFS.Layers}}{{.}}{{"\n"}}{{end}}' | sort | tr '\n' ',' > /workspace/latest_rootfs.txt
+          --format='{{range .RootFS.Layers}}{{.}}{{"\n"}}{{end}}' | sort | grep -v '^$' > /workspace/latest_rootfs.txt
         
-        echo "Normalized Local Image Layers String:"
+        echo "Normalized Local Image Layers Array:"
         cat /workspace/latest_rootfs.txt
 
         echo "Docker inspect output for local image:"
-        docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+        # FIXED: Points to the valid local tag reference created above
+        docker inspect latest-local-build:test
 
   # Step 3: Loop through remote images, pull their true nested rootfs layers, and conditionally push
-    # Step 3: Updated to explicitly install missing runtime dependencies
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'conditional-compare-and-push'
     entrypoint: 'bash'
@@ -58,7 +58,8 @@ steps:
         echo "Installing runtime dependencies (jq and docker)..."
         apt-get update -qq && apt-get install -y -qq jq docker.io > /dev/null
 
-        LOCAL_LAYERS=$$(cat /workspace/latest_rootfs.txt)
+        # Clean up any line endings or carriage returns
+        LOCAL_LAYERS=$$(cat /workspace/latest_rootfs.txt | tr -d '\r' | grep -v '^$$')
         if [ -z "$$LOCAL_LAYERS" ]; then
           echo "ERROR: Local layers file is empty."
           exit 1
@@ -76,9 +77,15 @@ steps:
         for VERSION in $$REMOTE_VERSIONS; do
           echo "Checking remote digest: $$VERSION"
           
+          # MATCHED SPECIFICATION: Outputs a matching multi-line list with NO trailing commas
           REMOTE_LAYERS=$$(gcloud artifacts docker images describe "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}@$${VERSION}" \
-            --format='json(image_summary.manifest)' | jq -r '.config.rootfs.diff_ids[]?' | sort | tr '\n' ',')
+            --format='json(image_summary.manifest)' 2>/dev/null | jq -r '.config.rootfs.diff_ids[]?' 2>/dev/null | tr -d '\r' | sort | grep -v '^$$')
           
+          if [ -z "$$REMOTE_LAYERS" ]; then
+            continue
+          fi
+
+          # Safe comparison of structurally matching multi-line blocks
           if [ "$$LOCAL_LAYERS" == "$$REMOTE_LAYERS" ]; then
             echo "--> ✅ MATCH FOUND: Remote digest $$VERSION has the exact same layer layout."
             FOUND_MATCH=true
@@ -90,10 +97,13 @@ steps:
           echo "=== RESULT: Image layers already exist in Registry. Skipping Docker Push step. ==="
         else
           echo "=== RESULT: Unique layer footprint detected. Executing push sequence... ==="
+          
+          # Re-tag the verified local reference back into the required full repository URI string path
+          docker tag latest-local-build:test ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+          
           gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
           docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
         fi
-
 
   # Step 4: List all images in the repository for verification
   - name: 'gcr.io/cloud-builders/gcloud'
