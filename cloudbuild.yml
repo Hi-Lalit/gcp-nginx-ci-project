@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.05'
+  _TAG: 'v1.01'
   _LOG_BUCKET: 'devops_ci_logs'
   
 
@@ -10,7 +10,7 @@ steps:
 
 # Step 1: Build the image and save to a tarball (no push)
 - name: 'gcr.io/kaniko-project/executor:latest'
-  id: 'build-only'
+  id: 'build only'
   args:
     - --context=dir://app
     - --no-push
@@ -24,11 +24,14 @@ steps:
 
 # Step 2: Load image into Docker
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'load image'
+  id: 'load image into Docker and extract RootFS layers'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Loading the built image from tarball into Docker"
+      echo "----------------------------------------------------------------------------------------------------------"
       docker load -i /workspace/image.tar
 
       apt-get update -qq && apt-get install -y -qq jq
@@ -43,13 +46,16 @@ steps:
       latest_digest=$(cat /workspace/latest_rootfs.txt)
       echo "$latest_digest"
 
-# Step 3: List existing RootFS layers of images in the repository
+# Step 3: Get RootFS layers of existing images in the repository
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
   id: 'Getting the RootFS layers of existing images in the repository'
   entrypoint: bash
   args:
   - '-c'
   - |
+    echo "----------------------------------------------------------------------------------------------------------"
+    echo "Getting the RootFS layers of existing images in the repository"
+    echo "----------------------------------------------------------------------------------------------------------"
     apt-get update -qq && apt-get install -y -qq jq docker.io
 
     echo "Getting full image references of all images in the repository"
@@ -76,6 +82,9 @@ steps:
   args:
     - '-c'
     - |
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Comparing RootFS layers of the new image with existing images in the repository"
+      echo "----------------------------------------------------------------------------------------------------------"
       apt-get update -qq && apt-get install -y -qq jq
 
       echo "Comparing RootFS layers of the new image with existing images in the repository"
@@ -90,5 +99,15 @@ steps:
         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
       fi
 
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Test the image by running a container'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Testing the image by running a container"
+      echo "----------------------------------------------------------------------------------------------------------"
+      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} echo "Container is running successfully"
 
 logsBucket: 'gs://${_LOG_BUCKET}'
