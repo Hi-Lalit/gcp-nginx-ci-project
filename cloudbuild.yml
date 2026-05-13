@@ -43,29 +43,31 @@ steps:
       cat /workspace/latest_rootfs.txt
 
 # Step 3: List existing RootFS layers of images in the repository
-- name: 'gcr.io/google.com'
-  id: 'Fetch Remote RootFS Layers via Gcloud'
-  entrypoint: 'bash'
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  id: 'Getting the RootFS layers of existing images in the repository'
+  entrypoint: bash
   args:
   - '-c'
   - |
-    # Construct the full remote target image path
-    IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
-    
-    echo "Inspecting remote metadata for: $$IMAGE_PATH"
+    apt-get update -qq && apt-get install -y -qq jq docker.io
 
-    # Fetch the image manifest layers directly via gcloud, format as space-separated text, and sort
-    gcloud artifacts docker images describe "$$IMAGE_PATH" --format="value(image_summary.layers.layerDigest)" | tr '\n' ' ' | tr -s ' ' | sed 's/ *$//' > /workspace/repo_rootfs.txt
+    echo "Getting full image references of all images in the repository"
 
-    # Read the output back into a local shell variable safely
-    repo_rootfs=$$(cat /workspace/repo_rootfs.txt)
-    
+    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
+      --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
+
+    echo "Image references in the repository:"
+    cat /workspace/image_refs.txt
+
+    while IFS= read -r image_ref; do
+      echo "Pulling $image_ref"
+      docker pull "$image_ref"
+      docker inspect "$image_ref" | jq -r '.[] | .RootFS.Layers | sort | join(" ")' >> /workspace/repo_rootfs.txt
+    done < /workspace/image_refs.txt
+
     echo "Existing RootFS layers in the repository:"
-    echo "$$repo_rootfs"
+    cat /workspace/repo_rootfs.txt
 
-options:
-  substitutionOption: 'ALLOW_LOOSE'
-
-
+  
 
 logsBucket: 'gs://${_LOG_BUCKET}'
