@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.04'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -23,8 +23,9 @@ steps:
 
 # Step 2: Push the tarball to the Artifact Registry
 # 'crane' is highly recommended for this as it is fast and lightweight
-- name: 'gcr.io/go-containerregistry/crane'
+- name: 'gcr.io/cloud-builders/docker'
   id: 'push-only'
+  entrypoint: 'bash'
   args: 
     - 'push'
     - 'image.tar'
