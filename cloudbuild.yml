@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.04'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -52,7 +52,7 @@ steps:
       images_in_repo=$$(docker images --format "{{.Digest}}")
 
       for img in $$images_in_repo; do
-        if [[ "$$img" == *"@$$Target_Image"* ]]; then
+        if [[ "$$img" == *"$$Target_Image"* ]]; then
           echo "This image already exists in the local repository. Skipping push."
           found=true
           break
