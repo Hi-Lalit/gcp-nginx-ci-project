@@ -24,12 +24,14 @@ steps:
 # Step 2: Push the tarball to the Artifact Registry
 # 'crane' is highly recommended for this as it is fast and lightweight
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'push-only'
+  id: 'load-and-push'
   entrypoint: 'bash'
-  args: 
-    - 'push'
-    - 'image.tar'
-    - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
+  args:
+    - '-c'
+    - |
+      docker load -i image.tar
+      docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+
 
 # 2. List all images in the repository
 - name: 'gcr.io/cloud-builders/gcloud'
