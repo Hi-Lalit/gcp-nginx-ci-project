@@ -13,7 +13,7 @@ steps:
   args:
     - --context=dir://app
     - --no-push
-    - --tar-path=image.tar
+    - --tar-path=/workspace/image.tar
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
     - --cache=true
     - --cache-ttl=168h
@@ -21,7 +21,15 @@ steps:
     - --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache
     - --reproducible=true
 
-# Step 2: Push the tarball to the Artifact Registry
+# Step 2: Load image into Docker
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'load-image'
+  args:
+    - 'load'
+    - '-i'
+    - '/workspace/image.tar'
+
+# Step 3: Push the tarball to the Artifact Registry
 
 - name: 'gcr.io/cloud-builders/docker'
   id: 'conditional-push'
@@ -52,12 +60,11 @@ steps:
       done
 
       if [ "$$found" = false ]; then
-        echo "Pushing new image to Artifact Registry..."
-        docker load -i image.tar
+        echo "Pushing new image to Artifact Registry..."        
         docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
       fi
 
-# 3. List all images in the repository
+# Step 4: List all images in the repository
 - name: 'gcr.io/cloud-builders/gcloud'
   id: 'list-all-images'
   args:
@@ -68,7 +75,7 @@ steps:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}'
 
 
-# 4. Inspect the image to verify RootFS layers (Focusing on the layers list)
+# Step 5: Inspect the image to verify RootFS layers (Focusing on the layers list)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
@@ -79,7 +86,7 @@ steps:
       echo "--- ROOTFS LAYERS ---"
       docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-# 5. Run functional tests
+# Step 6: Run functional tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
