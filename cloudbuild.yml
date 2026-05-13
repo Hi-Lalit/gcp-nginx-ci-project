@@ -80,10 +80,15 @@ steps:
 
       echo "Comparing RootFS layers of the new image with existing images in the repository"
 
-      if grep -Fxq "$latest_digest" /workspace/repo_rootfs.txt; then
-        echo "An identical image already exists in the repository. Skipping push."
+      latest_digest=$(cat /workspace/latest_rootfs.txt)
+      repo_digests=$(cat /workspace/repo_rootfs.txt)
+
+      if echo "$repo_digests" | grep -qFx "$latest_digest"; then
+        echo "An image with the same RootFS layers already exists. Skipping push."
       else
-        echo "No identical image found. Pushing the new image to the repository."
+        echo "No matching RootFS layers found. Pushing new image."
         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
       fi
+
+
 logsBucket: 'gs://${_LOG_BUCKET}'
