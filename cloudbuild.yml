@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.02'
+  _TAG: 'v1.03'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -49,7 +49,7 @@ steps:
 
       found=false
 
-      images_in_repo=$$(docker images --format "{{.Digest}}" | grep -v "$$Target_Image")
+      images_in_repo=$$(docker images --format "{{.Digest}}")
 
       for img in $$images_in_repo; do
         if [[ "$$img" == *"@$$Target_Image"* ]]; then
