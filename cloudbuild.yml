@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.04'
+  _TAG: 'v1.05'
   _LOG_BUCKET: 'devops_ci_logs'
   
   # _IMAGE_NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
@@ -17,7 +17,6 @@ steps:
     - --no-push
     - --tar-path=/workspace/image.tar
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-    - --digest-file=/workspace/latest_digest.txt
     - --cache=true
     - --cache-ttl=168h
     # Point this to a 'cache' folder in your repository
@@ -27,10 +26,18 @@ steps:
 # Step 2: Load image into Docker
 - name: 'gcr.io/cloud-builders/docker'
   id: 'load-image'
+  entrypoint: 'bash'
   args:
-    - 'load'
-    - '-i'
-    - '/workspace/image.tar'
+    - '-c'
+    - |
+      docker load -i /workspace/image.tar
+
+      docker inspect ${_IMAGE_NAME} \
+        --format='{{.Id}}' \
+        > /workspace/latest_digest.txt
+
+      echo "Latest Image Digest:"
+      cat /workspace/latest_digest.txt
 
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
   id: 'list-existing-digest-of-images'
@@ -40,7 +47,7 @@ steps:
   - |
     gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY} --format='value(version)' > /workspace/repo_digests.txt
     
-    
+    echo "Existing Image Digests in Repository:"
     cat /workspace/repo_digests.txt
 
 # Step 3: Push the tarball to the Artifact Registry
@@ -65,12 +72,10 @@ steps:
 
       found=false
 
-      images_in_repo=$$(cat /workspace/repo_digests.txt)
+      images_in_repo="$$(cat /workspace/repo_digests.txt)"
 
-      # if [ -z "$$images_in_repo" ]; then
-      #   echo "No images found in the repository. Pushing new image to Artifact Registry..."
-      #   docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"  
-      # fi
+      echo "images_in_repo: $$images_in_repo"
+
 
       for img in $$images_in_repo; do
         if [[ "$$img" == *"$$Target_Image"* ]]; then
