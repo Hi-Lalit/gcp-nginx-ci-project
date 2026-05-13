@@ -49,17 +49,20 @@ steps:
   args:
   - '-c'
   - |
+    # Use $$ for the bash variable so Cloud Build ignores it
     IMAGE_PATH="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
     
-    echo "Fetching layers for $IMAGE_PATH..."
+    echo "Fetching layers for $$IMAGE_PATH..."
 
-    # Extracts diff_ids using native string manipulation instead of jq
-    crane config $IMAGE_PATH | grep "sha256:" | tr -d '", ' | sort | tr '\n' ' ' > /workspace/repo_rootfs.txt
+    # FIX: Changed $IMAGE_PATH to $$IMAGE_PATH
+    crane config $$IMAGE_PATH | grep "sha256:" | tr -d '", ' | sort | tr '\n' ' ' > /workspace/repo_rootfs.txt
     
-    repo_rootfs=$(cat /workspace/repo_rootfs.txt)
+    # FIX: Changed $repo_rootfs to $$repo_rootfs
+    repo_rootfs=$$(cat /workspace/repo_rootfs.txt)
 
     echo "Existing RootFS layers in the repository:"
-    echo "$repo_rootfs"
+    echo "$$repo_rootfs"
+
 
 
 logsBucket: 'gs://${_LOG_BUCKET}'
