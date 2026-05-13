@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.02'
+  _TAG: 'v1.03'
   _LOG_BUCKET: 'devops_ci_logs'
   
   # _IMAGE_NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
@@ -54,6 +54,8 @@ steps:
       set -o pipefail
 
       Target_Image=$$(docker images --format "{{.Digest}}" ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG})
+
+      echo "Target Image Digest: $$Target_Image"
       
       if [ -z "$$Target_Image" ]; then
         echo "Failed to retrieve the target image digest. Please check if the image was built successfully."
@@ -71,6 +73,7 @@ steps:
 
       for img in $$images_in_repo; do
         if [[ "$$img" == *"$$Target_Image"* ]]; then
+          echo "Image: $$img"
           echo "This image already exists in the local repository. Skipping push."
           found=true
           break
