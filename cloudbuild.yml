@@ -54,7 +54,7 @@ steps:
         
         # Step 2: Use docker manifest to read remote layers without downloading the whole image
         # Extract layers, sort them, join them with a space, and append to the text file
-        docker manifest inspect "$IMAGE_URI" 2>/dev/null | jq -r '
+        docker manifest inspect "$$IMAGE_URI" 2>/dev/null | jq -r '
           if .layers then 
             [.layers[].digest] | sort | join(" ") 
           else 
