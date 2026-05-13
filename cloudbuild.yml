@@ -40,7 +40,8 @@ steps:
       docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | jq -r '.[] | .RootFS.Layers | sort | join(" ")' > /workspace/latest_rootfs.txt
 
       echo "Latest Image Digest:"
-      cat /workspace/latest_rootfs.txt
+      latest_digest=$(cat /workspace/latest_rootfs.txt)
+      echo "$latest_digest"
 
 # Step 3: List existing RootFS layers of images in the repository
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -66,8 +67,23 @@ steps:
     done < /workspace/image_refs.txt
 
     echo "Existing RootFS layers in the repository:"
-    cat /workspace/repo_rootfs.txt
+    repo_rootfs=$(cat /workspace/repo_rootfs.txt)
+    echo "$repo_rootfs"
 
-  
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Compare RootFS layers'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      apt-get update -qq && apt-get install -y -qq jq
 
+      echo "Comparing RootFS layers of the new image with existing images in the repository"
+
+      if grep -Fxq "$latest_digest" /workspace/repo_rootfs.txt; then
+        echo "An identical image already exists in the repository. Skipping push."
+      else
+        echo "No identical image found. Pushing the new image to the repository."
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      fi
 logsBucket: 'gs://${_LOG_BUCKET}'
