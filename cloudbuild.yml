@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.04'
+  _TAG: 'v1.01'
   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
@@ -22,18 +22,42 @@ steps:
     - --reproducible=true
 
 # Step 2: Push the tarball to the Artifact Registry
-# 'crane' is highly recommended for this as it is fast and lightweight
+
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'load-and-push'
+  id: 'conditional-push'
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      docker load -i image.tar
-      docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      set -e
+      set -o pipefail
 
+      Target_Image=$$(docker images --format "{{.Digest}}" ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG})
+      
+      if [ -z "$$Target_Image" ]; then
+        echo "Failed to retrieve the target image digest. Please check if the image was built successfully."
+        exit 1
+      fi
 
-# 2. List all images in the repository
+      found=false
+
+      images_in_repo=$$(docker images --format "{{.Digest}}" | grep -v "$$Target_Image")
+
+      for img in $$images_in_repo; do
+        if [[ "$$img" == *"@$$Target_Image"* ]]; then
+          echo "This image already exists in the local repository. Skipping push."
+          found=true
+          break
+        fi
+      done
+
+      if [ "$$found" = false ]; then
+        echo "Pushing new image to Artifact Registry..."
+        docker load -i image.tar
+        docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
+      fi
+
+# 3. List all images in the repository
 - name: 'gcr.io/cloud-builders/gcloud'
   id: 'list-all-images'
   args:
@@ -44,7 +68,7 @@ steps:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}'
 
 
-# 3. Inspect the image to verify RootFS layers (Focusing on the layers list)
+# 4. Inspect the image to verify RootFS layers (Focusing on the layers list)
 - name: 'gcr.io/cloud-builders/docker'
   id: 'inspect-image'
   entrypoint: 'bash'
@@ -55,7 +79,7 @@ steps:
       echo "--- ROOTFS LAYERS ---"
       docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
 
-# 4. Run functional tests
+# 5. Run functional tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'test-image'
   args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
