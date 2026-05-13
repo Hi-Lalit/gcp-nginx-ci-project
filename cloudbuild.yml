@@ -17,6 +17,7 @@ steps:
     - --no-push
     - --tar-path=/workspace/image.tar
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+    - --digest-file=/workspace/latest_digest.txt
     - --cache=true
     - --cache-ttl=168h
     # Point this to a 'cache' folder in your repository
@@ -32,15 +33,15 @@ steps:
     - '/workspace/image.tar'
 
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'list-existing-images'
+  id: 'list-existing-digest-of-images'
   entrypoint: bash
   args:
   - '-c'
   - |
-    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY} --format='value(version)' > /workspace/digests.txt
+    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY} --format='value(version)' > /workspace/repo_digests.txt
     
     
-    cat /workspace/digests.txt
+    cat /workspace/repo_digests.txt
 
 # Step 3: Push the tarball to the Artifact Registry
 
@@ -53,7 +54,7 @@ steps:
       set -e
       set -o pipefail
 
-      Target_Image=$$(docker images --format "{{.Digest}}" ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG})
+      Target_Image='$(cat /workspace/latest_digest.txt)'
 
       echo "Target Image Digest: $$Target_Image"
       
@@ -64,7 +65,7 @@ steps:
 
       found=false
 
-      images_in_repo=$$(cat /workspace/digests.txt)
+      images_in_repo=$$(cat /workspace/repo_digests.txt)
 
       # if [ -z "$$images_in_repo" ]; then
       #   echo "No images found in the repository. Pushing new image to Artifact Registry..."
