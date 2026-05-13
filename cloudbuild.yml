@@ -4,6 +4,7 @@ substitutions:
   _IMAGE: 'nginx-app'
   _TAG: 'v1.05'
   _LOG_BUCKET: 'devops_ci_logs'
+  
 
 steps:
 
@@ -17,6 +18,7 @@ steps:
     - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
     - --cache=true
     - --cache-ttl=168h
+    # Point this to a 'cache' folder in your repository
     - --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache
     - --reproducible=true
 
@@ -34,94 +36,6 @@ steps:
       echo "Latest Image Digest:"
       cat /workspace/latest_rootfs.txt
 
-# Step 3: Fetch layers from existing repository versions safely
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'list-existing-rootfs-of-images'
-  entrypoint: bash
-  args:
-  - '-c'
-  - |
-    # 1. Install dependencies cleanly
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq && apt-get install -y -qq jq > /dev/null
-
-    # 2. Corrected directory mapping and file truncation
-    mkdir -p /workspace
-    > /workspace/repo_rootfs.txt
-
-    # 3. Fixed YAML spacing, escaped the loop variable, and scoped target exactly to the image
-    for VERSION in $(gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE} --format='value(version)' 2>/dev/null || true); do
-        
-        # 4. Corrected to scan the exact digest version from the repository history
-        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}@$$VERSION"
-        
-        docker manifest inspect "$$IMAGE_URI" 2>/dev/null | jq -r '
-          if .layers then 
-            [.layers[].digest] | sort | join(" ") 
-          else 
-            empty 
-          fi
-        ' >> /workspace/repo_rootfs.txt
-
-    done
-
-    sort -o /workspace/repo_rootfs.txt /workspace/repo_rootfs.txt
-
-# Step 4: Push the tarball conditionally
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'conditional-push'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      set -e
-      set -o pipefail
-
-      Target_Image=$$(cat /workspace/latest_rootfs.txt | xargs)
-      echo "Target Image Digest: $$Target_Image"
-      
-      if [ -z "$$Target_Image" ]; then
-        echo "Error: Target image layers file is empty. Cannot verify."
-        exit 1
-      fi
-
-      found=false
-
-      if grep -qx -F "$$Target_Image" /workspace/repo_rootfs.txt; then
-        echo "An identical image already exists in the repository. Skipping push."
-        found=true
-      else
-        echo "No identical image found in the repository. Proceeding to push."
-      fi
-
-      if [ "$$found" = false ]; then
-        echo "Pushing new image to Artifact Registry..."        
-        docker push "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}"
-      fi
-
-# Step 5: List images inside specific package structure
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: 'list-all-images'
-  args:
-  - 'artifacts'
-  - 'docker'
-  - 'images'
-  - 'list'
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}'
-
-# Step 6: Inspect local container metadata safely (without breaking on skipped pushes)
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'inspect-image'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      echo "--- ROOTFS LAYERS ---"
-      docker inspect --format='{{json .RootFS.Layers}}' ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-
-# Step 7: Run functional software tests safely via loaded local copy
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'test-image'
-  args: ['run', '--rm', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}', 'echo', 'Tests passed']
+  
 
 logsBucket: 'gs://${_LOG_BUCKET}'
