@@ -24,7 +24,7 @@ steps:
 
 # Step 2: Load image into Docker
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'load-image'
+  id: 'load image'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -41,6 +41,21 @@ steps:
 
       echo "Latest Image Digest:"
       cat /workspace/latest_rootfs.txt
+
+# Step 3: List existing RootFS layers of images in the repository
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  id: 'list-existing-rootfs-of-images'
+  entrypoint: bash
+  args:
+  - '-c'
+  - |
+
+    echo "Getting Id of all images in the repository"
+
+    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} --format="value(version)" > /workspace/image_ids.txt
+
+    echo "Image IDs in the repository:"
+    echo "$(cat /workspace/image_ids.txt)"
 
   
 
