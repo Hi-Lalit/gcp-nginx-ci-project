@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.01'
+  _TAG: 'v1.02'
   _LOG_BUCKET: 'devops_ci_logs'
   
   # _IMAGE_NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
