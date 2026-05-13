@@ -55,7 +55,15 @@ steps:
     gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} --format="value(version)" > /workspace/image_ids.txt
 
     echo "Image IDs in the repository:"
-    echo "$(cat /workspace/image_ids.txt)"
+
+    Image_IDs=$(cat /workspace/image_ids.txt)
+    
+    for image_id in $Image_IDs; do
+      docker inspect $image_id | jq -r '.[] | .RootFS.Layers | sort | join(" ")' >> /workspace/existing_rootfs.txt
+    done
+
+    echo "Existing RootFS layers in the repository:"
+    cat /workspace/existing_rootfs.txt
 
   
 
