@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.04'
   _LOG_BUCKET: 'devops_ci_logs'
   
   # _IMAGE_NAME: '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}'
@@ -54,7 +54,7 @@ steps:
       set -e
       set -o pipefail
 
-      Target_Image='$(cat /workspace/latest_digest.txt)'
+      Target_Image="$$(cat /workspace/latest_digest.txt)"
 
       echo "Target Image Digest: $$Target_Image"
       
