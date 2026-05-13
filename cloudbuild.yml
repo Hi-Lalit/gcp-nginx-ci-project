@@ -44,11 +44,12 @@ steps:
 
 # Step 3: List existing RootFS layers of images in the repository
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'list-existing-rootfs-of-images'
+  id: 'Getting the RootFS layers of existing images in the repository'
   entrypoint: bash
   args:
   - '-c'
   - |
+    apt-get update -qq && apt-get install -y -qq jq
 
     echo "Getting Id of all images in the repository"
 
@@ -59,11 +60,11 @@ steps:
     Image_IDs=$(cat /workspace/image_ids.txt)
     
     for image_id in $Image_IDs; do
-      docker inspect $image_id | jq -r '.[] | .RootFS.Layers | sort | join(" ")' >> /workspace/existing_rootfs.txt
+      docker inspect $image_id | jq -r '.[] | .RootFS.Layers | sort | join(" ")' >> /workspace/repo_rootfs.txt
     done
 
     echo "Existing RootFS layers in the repository:"
-    cat /workspace/existing_rootfs.txt
+    cat /workspace/repo_rootfs.txt
 
   
 
