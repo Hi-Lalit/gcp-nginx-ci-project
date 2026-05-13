@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.01'
+  _TAG: 'v1.02'
   _LOG_BUCKET: 'devops_ci_logs'
   
 
@@ -45,6 +45,12 @@ steps:
       echo "Latest Image Digest:"
       latest_digest=$(cat /workspace/latest_rootfs.txt)
       echo "$latest_digest"
+
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Testing the image by running a container"
+      echo "----------------------------------------------------------------------------------------------------------"
+      
+      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} echo "Container is running successfully"
 
 # Step 3: Get RootFS layers of existing images in the repository
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -98,16 +104,5 @@ steps:
         echo "No matching RootFS layers found. Pushing new image."
         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
       fi
-
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'Test the image by running a container'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Testing the image by running a container"
-      echo "----------------------------------------------------------------------------------------------------------"
-      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} echo "Container is running successfully"
 
 logsBucket: 'gs://${_LOG_BUCKET}'
