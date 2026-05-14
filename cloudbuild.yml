@@ -129,23 +129,27 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
-      tag=$(sed 's/^v//' /workspace/image_tags.txt | sort -V | tail -n 1)
-      echo "Last Version tag: $tag"
+      data=$(cat /workspace/image_tags.txt 2>/dev/null)
 
-      if [ -f "$tag" ]; then
-      echo "Tag file is empty."
-      first_tag="v1.01"
-      
-      exit 1
+      # 2. Check if the file is missing or the variable is empty
+      if [ -z "$data" ]; then
+          echo "Tag file is empty or missing."
+          updated_tag="v1.01"
+          echo "Using first tag: ${updated_tag}"
+          # Optionally save it: echo "1.01" > tag.txt
+          exit 0
       else
-        
-      # 3. Calculate new tag using 'bc' and format to 2 decimal places
-      incremented_num=$(printf "%.2f" $(echo "$tag + 0.01" | bc))
-
-      # 4. Re-attach the 'v' prefix
-      updated_tag="v${incremented_num}"
-
-      echo "Updated tag: ${updated_tag}"
+          # Remove 'v' prefix if it exists in the file to perform math
+          clean_data=$(echo "$data" | sed 's/^v//')
+          
+          echo "Last Version tag: $data"
+          
+          # 3. Calculate new tag using awk
+          incremented_num=$(awk "BEGIN {printf \"%.2f\", $clean_data + 0.01}")
+          
+          # 4. Re-attach the 'v' prefix
+          updated_tag="v${incremented_num}"
+          echo "Updated tag: ${updated_tag}"
       fi
 
 
