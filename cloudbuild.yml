@@ -24,7 +24,7 @@ steps:
 
 # Step 2: Load image into Docker
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'load image & exract RootFS layers'
+  id: 'load, inspect & test image'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -87,11 +87,13 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       apt-get update -qq && apt-get install -y -qq jq
 
+      image_refs=$(cat /workspace/image_refs.txt)
+
       echo "Extracting RootFS layers"
 
       while IFS= read -r image_ref; do
         echo "Inspecting image: $image_ref"      
-        crane config ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | \
+        crane config $image_ref  | \
         jq -r '.rootfs.diff_ids | join(" ")' >> /workspace/repo_rootfs.txt
       done < /workspace/image_refs.txt
 
