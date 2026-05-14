@@ -76,16 +76,19 @@ steps:
     cat /workspace/image_refs.txt
 
 # Step 4: Extract RootFS layers of existing images using crane for comparison
-- name: 'gcr.io/go-containerregistry/crane:debug' 
+- name: 'gcr.io/cloud-builders/gcloud'
   id: 'RootFS layers of Repository images'
-  entrypoint: 'sh'
+  entrypoint: 'bash'
   args:
     - '-c'
     - |
+      set -e
+
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Extracting RootFS layers of Repository images using crane for comparison"
       echo "----------------------------------------------------------------------------------------------------------"
-      apt-get update -qq && apt-get install -y -qq jq
+      
+      apt-get update -qq && apt-get install -y -qq jq crane
 
       image_refs=$(cat /workspace/image_refs.txt)
 
