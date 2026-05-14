@@ -77,7 +77,7 @@ steps:
 
 # Step 4: Extract RootFS layers of existing images using crane for comparison
 - name: 'gcr.io/cloud-builders/gcloud'
-  id: 'RootFS layers of Repository images'
+  id: 'Extract RootFS layers of Repository images'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -102,7 +102,7 @@ steps:
 
       while IFS= read -r image_ref; do
         echo "Inspecting image: $image_ref"      
-        crane config $image_ref  | \
+        crane config --platform linux/amd64 $image_ref  | \
         jq -r '.rootfs.diff_ids | join(" ")' >> /workspace/repo_rootfs.txt
       done < /workspace/image_refs.txt
 
@@ -111,7 +111,7 @@ steps:
 
 # Step 5: Compare RootFS layers and decide whether to push the new image
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'Compare RootFS layers'
+  id: 'Conditional Push'
   entrypoint: 'bash'
   args:
     - '-c'
