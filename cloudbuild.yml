@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.03'
+  _TAG: 'v1.04'
   _LOG_BUCKET: 'devops_ci_logs'
   
 
@@ -54,57 +54,69 @@ steps:
       
       docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} echo "Container is running successfully"
 
-# Step 3: Get RootFS layers of existing images in the repository
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'Getting the RootFS layers of existing images in the repository'
-  entrypoint: bash
-  args:
-  - '-c'
-  - |
-    echo "----------------------------------------------------------------------------------------------------------"
-    echo "Getting the RootFS layers of existing images in the repository"
-    echo "----------------------------------------------------------------------------------------------------------"
-    apt-get update -qq && apt-get install -y -qq jq docker.io
+# # Step 3: Get RootFS layers of existing images in the repository
+# - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+#   id: 'Getting the RootFS layers of existing images in the repository'
+#   entrypoint: bash
+#   args:
+#   - '-c'
+#   - |
+#     echo "----------------------------------------------------------------------------------------------------------"
+#     echo "Getting the RootFS layers of existing images in the repository"
+#     echo "----------------------------------------------------------------------------------------------------------"
+    
+#     apt-get update -qq && apt-get install -y -qq jq docker.io
 
-    echo "Extracting the RootFS layers of all images in the repository for comparison with the new image and saving to repo_rootfs.txt"
+#     echo "Listing all images in the repository and extracting their RootFS layers"
+  
+#     gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
+#       --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
 
-    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
-      --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
+#     echo "Image references in the repository:"
+#     cat /workspace/image_refs.txt
 
-    echo "Image references in the repository:"
-    cat /workspace/image_refs.txt
+# # Step 4: Extract RootFS layers of existing images using crane for comparison
+# - name: 'gcr.io/go-containerregistry/crane'
+#   id: 'Extract RootFS layers of existing images using crane'
+#   entrypoint: 'sh'
+#   args:
+#     - '-c'
+#     - |
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       echo "Extracting RootFS layers of Repository images using crane for comparison"
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       apt-get update -qq && apt-get install -y -qq jq
 
-    while IFS= read -r image_ref; do
-      echo "Inspecting image: $image_ref"      
-      docker manifest inspect "$image_ref" | \
-      jq -r '[.layers[].digest] | sort | join(" ")' >> /workspace/repo_rootfs.txt
-    done < /workspace/image_refs.txt
+#       echo "Extracting RootFS layers"
 
-    echo "Existing RootFS layers in the repository:"
-    repo_rootfs=$(cat /workspace/repo_rootfs.txt)
-    echo "$repo_rootfs"
+#       while IFS= read -r image_ref; do
+#         echo "Inspecting image: $image_ref"      
+#         crane config ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | \
+#         jq -r '.rootfs.diff_ids | join(" ")' >> /workspace/repo_rootfs.txt
+#       done < /workspace/image_refs.txt
 
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'Compare RootFS layers'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Comparing RootFS layers of the new image with existing images in the repository"
-      echo "----------------------------------------------------------------------------------------------------------"
-      apt-get update -qq && apt-get install -y -qq jq
+# # Step 5: Compare RootFS layers and decide whether to push the new image
+# - name: 'gcr.io/cloud-builders/docker'
+#   id: 'Compare RootFS layers'
+#   entrypoint: 'bash'
+#   args:
+#     - '-c'
+#     - |
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       echo "Comparing RootFS layers of the new image with existing images in the repository"
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       apt-get update -qq && apt-get install -y -qq jq
 
-      echo "Comparing RootFS layers of the new image with existing images in the repository"
+#       echo "Comparing RootFS layers of the new image with existing images in the repository"
 
-      latest_digest=$(cat /workspace/latest_rootfs.txt)
-      repo_digests=$(cat /workspace/repo_rootfs.txt)
+#       latest_digest=$(cat /workspace/latest_rootfs.txt)
+#       repo_digests=$(cat /workspace/repo_rootfs.txt)
 
-      if echo "$repo_digests" | grep -qFx "$latest_digest"; then
-        echo "An image with the same RootFS layers already exists. Skipping push."
-      else
-        echo "No matching RootFS layers found. Pushing new image."
-        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-      fi
+#       if echo "$repo_digests" | grep -qFx "$latest_digest"; then
+#         echo "An image with the same RootFS layers already exists. Skipping push."
+#       else
+#         echo "No matching RootFS layers found. Pushing new image."
+#         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+#       fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
