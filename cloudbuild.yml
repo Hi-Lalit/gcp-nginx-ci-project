@@ -74,6 +74,7 @@ steps:
         --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
         --cache=true \
         --cache-ttl=168h \
+        --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache \
         --reproducible=true
 
 # Step 2: Load image into Docker, extract RootFS layers, run tests
