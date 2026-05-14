@@ -76,7 +76,7 @@ steps:
     cat /workspace/image_refs.txt
 
 # Step 4: Extract RootFS layers of existing images using crane for comparison
-- name: 'gcr.io/go-containerregistry/crane'
+- name: 'gcr.io/go-containerregistry/crane:debug' 
   id: 'RootFS layers of Repository images'
   entrypoint: 'sh'
   args:
