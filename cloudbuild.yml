@@ -54,26 +54,26 @@ steps:
       
       docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} echo "Container is running successfully"
 
-# # Step 3: Get RootFS layers of existing images in the repository
-# - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-#   id: 'Getting the RootFS layers of existing images in the repository'
-#   entrypoint: bash
-#   args:
-#   - '-c'
-#   - |
-#     echo "----------------------------------------------------------------------------------------------------------"
-#     echo "Getting the RootFS layers of existing images in the repository"
-#     echo "----------------------------------------------------------------------------------------------------------"
+# Step 3: Get RootFS layers of existing images in the repository
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  id: 'Getting the RootFS layers of existing images in the repository'
+  entrypoint: bash
+  args:
+  - '-c'
+  - |
+    echo "----------------------------------------------------------------------------------------------------------"
+    echo "Getting the RootFS layers of existing images in the repository"
+    echo "----------------------------------------------------------------------------------------------------------"
     
-#     apt-get update -qq && apt-get install -y -qq jq docker.io
+    apt-get update -qq && apt-get install -y -qq jq docker.io
 
-#     echo "Listing all images in the repository and extracting their RootFS layers"
+    echo "Listing all images in the repository and extracting their RootFS layers"
   
-#     gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
-#       --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
+    gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
+      --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
 
-#     echo "Image references in the repository:"
-#     cat /workspace/image_refs.txt
+    echo "Image references in the repository:"
+    cat /workspace/image_refs.txt
 
 # # Step 4: Extract RootFS layers of existing images using crane for comparison
 # - name: 'gcr.io/go-containerregistry/crane'
