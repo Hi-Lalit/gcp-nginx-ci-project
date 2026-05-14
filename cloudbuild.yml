@@ -87,15 +87,17 @@ steps:
         [ -z "$image_ref" ] && continue
         echo "Inspecting image: $image_ref"
 
-        layers=$(crane config "$image_ref" \
-          | tr '{' '\n' | tr '}' '\n' | tr ',' '\n' \
-          | grep '"sha256:' \
-          | tr -d '"' \
-          | tr '\n' ' ' \
-          | xargs) || {
+        raw=$(crane config "$image_ref") || {
           echo "WARNING: crane config failed for $image_ref" >&2
           continue
         }
+
+        layers=$(echo "$raw" \
+          | grep -o '"diff_ids":\[[^]]*\]' \
+          | grep -o '"sha256:[a-f0-9]*"' \
+          | tr -d '"' \
+          | tr '\n' ' ' \
+          | xargs)
 
         if [ -z "$layers" ]; then
           echo "WARNING: No layers found for $image_ref" >&2
