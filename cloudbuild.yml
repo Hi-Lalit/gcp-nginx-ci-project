@@ -30,30 +30,30 @@ steps:
       echo "Image tags found:"
       cat /workspace/image_tags.txt
 
-      data=$(cat /workspace/image_tags.txt 2>/dev/null)
+      data=$$(cat /workspace/image_tags.txt 2>/dev/null)
 
       # 2. Check if the file is missing or the variable is empty
-      if [ -z "$data" ]; then
+      if [ -z "$$data" ]; then
           echo "Tag file is empty or missing."
           updated_tag="v1.01"
-          echo "Using first tag: ${updated_tag}"
+          echo "Using first tag: $${updated_tag}"
           # Optionally save it: echo "1.01" > tag.txt
           
       else
           # Remove 'v' prefix if it exists in the file to perform math
-          clean_data=$(echo "$data" | sed 's/^v//')
+          clean_data=$$(echo "$data" | sed 's/^v//')
           
           echo "Last Version tag: $data"
           
           # 3. Calculate new tag using awk
-          incremented_num=$(awk "BEGIN {printf \"%.2f\", $clean_data + 0.01}")
+          incremented_num=$$(awk "BEGIN {printf \"%.2f\", $clean_data + 0.01}")
           
           # 4. Re-attach the 'v' prefix
-          updated_tag="v${incremented_num}"
-          echo "Updated tag: ${updated_tag}"
+          updated_tag="v$${incremented_num}"
+          echo "Updated tag: $${updated_tag}"
       fi
 
-      echo "$updated_tag" > /workspace/updated_tag.txt
+      echo "$${updated_tag}" > /workspace/updated_tag.txt
 
 
 # Step 1: Build the image and save to a tarball (no push)
@@ -66,11 +66,12 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Building the image with Kaniko and saving to tarball (no push)"
       echo "----------------------------------------------------------------------------------------------------------"
-      NEW_TAG=$(cat /workspace/updated_tag.txt)
+      NEW_TAG=$$(cat /workspace/updated_tag.txt)
+
       /kaniko/executor --context=dir://app \
         --no-push \
         --tar-path=/workspace/image.tar \
-        --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${NEW_TAG} \
+        --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
         --cache=true \
         --cache-ttl=168h \
         --reproducible=true
@@ -84,7 +85,7 @@ steps:
     - |
       set -e
 
-      NEW_TAG=$(cat /workspace/updated_tag.txt)
+      NEW_TAG=$$(cat /workspace/updated_tag.txt)
 
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Loading the built image from tarball into Docker"
@@ -94,7 +95,7 @@ steps:
       apt-get update -qq && apt-get install -y -qq jq
 
       echo "Extracting RootFS layers and saving to latest_rootfs.txt"
-      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${NEW_TAG} \
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
         | jq -r '.[] | .RootFS.Layers | join(" ")' > /workspace/latest_rootfs.txt
 
       echo "Latest image RootFS layers:"
@@ -103,7 +104,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Testing the image by running a container"
       echo "----------------------------------------------------------------------------------------------------------"
-      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${NEW_TAG} \
+      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
         echo "Container is running successfully"
 
 
@@ -164,7 +165,7 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
-      NEW_TAG=$(cat /workspace/updated_tag.txt)
+      NEW_TAG=$$(cat /workspace/updated_tag.txt)
 
       # Guard: abort if repo_rootfs.txt is empty rather than push blindly
       if [ ! -s /workspace/repo_rootfs.txt ]; then
@@ -199,7 +200,7 @@ steps:
         echo "Identical image already exists in repository. Skipping push."
       else
         echo "No matching image found. Pushing new image."
-        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${NEW_TAG}
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG
       fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
