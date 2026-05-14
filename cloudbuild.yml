@@ -24,7 +24,7 @@ steps:
 
 # Step 2: Load image into Docker
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'load image into Docker and extract RootFS layers'
+  id: 'load image & exract RootFS layers'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -56,7 +56,7 @@ steps:
 
 # Step 3: Get RootFS layers of existing images in the repository
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  id: 'Getting the RootFS layers of existing images in the repository'
+  id: 'Images in repository'
   entrypoint: bash
   args:
   - '-c'
@@ -75,25 +75,25 @@ steps:
     echo "Image references in the repository:"
     cat /workspace/image_refs.txt
 
-# # Step 4: Extract RootFS layers of existing images using crane for comparison
-# - name: 'gcr.io/go-containerregistry/crane'
-#   id: 'Extract RootFS layers of existing images using crane'
-#   entrypoint: 'sh'
-#   args:
-#     - '-c'
-#     - |
-#       echo "----------------------------------------------------------------------------------------------------------"
-#       echo "Extracting RootFS layers of Repository images using crane for comparison"
-#       echo "----------------------------------------------------------------------------------------------------------"
-#       apt-get update -qq && apt-get install -y -qq jq
+# Step 4: Extract RootFS layers of existing images using crane for comparison
+- name: 'gcr.io/go-containerregistry/crane'
+  id: 'RootFS layers of Repository images'
+  entrypoint: 'sh'
+  args:
+    - '-c'
+    - |
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Extracting RootFS layers of Repository images using crane for comparison"
+      echo "----------------------------------------------------------------------------------------------------------"
+      apt-get update -qq && apt-get install -y -qq jq
 
-#       echo "Extracting RootFS layers"
+      echo "Extracting RootFS layers"
 
-#       while IFS= read -r image_ref; do
-#         echo "Inspecting image: $image_ref"      
-#         crane config ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | \
-#         jq -r '.rootfs.diff_ids | join(" ")' >> /workspace/repo_rootfs.txt
-#       done < /workspace/image_refs.txt
+      while IFS= read -r image_ref; do
+        echo "Inspecting image: $image_ref"      
+        crane config ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} | \
+        jq -r '.rootfs.diff_ids | join(" ")' >> /workspace/repo_rootfs.txt
+      done < /workspace/image_refs.txt
 
 # # Step 5: Compare RootFS layers and decide whether to push the new image
 # - name: 'gcr.io/cloud-builders/docker'
