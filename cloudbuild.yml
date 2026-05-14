@@ -2,7 +2,7 @@ substitutions:
   _REGION: 'us-east1'
   _REPOSITORY: 'docker-repo'
   _IMAGE: 'nginx-app'
-  _TAG: 'v1.02'
+  _TAG: 'v1.03'
   _LOG_BUCKET: 'devops_ci_logs'
   
 
@@ -84,27 +84,27 @@ steps:
     repo_rootfs=$(cat /workspace/repo_rootfs.txt)
     echo "$repo_rootfs"
 
-# - name: 'gcr.io/cloud-builders/docker'
-#   id: 'Compare RootFS layers'
-#   entrypoint: 'bash'
-#   args:
-#     - '-c'
-#     - |
-#       echo "----------------------------------------------------------------------------------------------------------"
-#       echo "Comparing RootFS layers of the new image with existing images in the repository"
-#       echo "----------------------------------------------------------------------------------------------------------"
-#       apt-get update -qq && apt-get install -y -qq jq
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Compare RootFS layers'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Comparing RootFS layers of the new image with existing images in the repository"
+      echo "----------------------------------------------------------------------------------------------------------"
+      apt-get update -qq && apt-get install -y -qq jq
 
-#       echo "Comparing RootFS layers of the new image with existing images in the repository"
+      echo "Comparing RootFS layers of the new image with existing images in the repository"
 
-#       latest_digest=$(cat /workspace/latest_rootfs.txt)
-#       repo_digests=$(cat /workspace/repo_rootfs.txt)
+      latest_digest=$(cat /workspace/latest_rootfs.txt)
+      repo_digests=$(cat /workspace/repo_rootfs.txt)
 
-#       if echo "$repo_digests" | grep -qFx "$latest_digest"; then
-#         echo "An image with the same RootFS layers already exists. Skipping push."
-#       else
-#         echo "No matching RootFS layers found. Pushing new image."
-#         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
-#       fi
+      if echo "$repo_digests" | grep -qFx "$latest_digest"; then
+        echo "An image with the same RootFS layers already exists. Skipping push."
+      else
+        echo "No matching RootFS layers found. Pushing new image."
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
