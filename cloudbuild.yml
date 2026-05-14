@@ -57,7 +57,7 @@ steps:
 
 
 # Step 1: Build the image and save to a tarball (no push)
-- name: 'gcr.io/kaniko-project/executor:latest'
+- name: 'gcr.io/kaniko-project/executor:debug'
   id: 'Build image'
   entrypoint: 'sh'
   args:
