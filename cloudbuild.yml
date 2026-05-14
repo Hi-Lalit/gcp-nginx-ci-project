@@ -92,9 +92,10 @@ steps:
 
       # Install crane binary
 
-      CRANE_VERSION=$(curl -s https://api.github.com/repos/google/go-containerregistry/releases/latest | jq -r '.tag_name')
-      curl -sL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin crane
-
+      crane_version=$(curl -s https://api.github.com/repos/google/go-containerregistry/releases/latest \
+      | jq -r '.tag_name')
+      curl -sL "https://github.com/google/go-containerregistry/releases/download/$${crane_version}/go-containerregistry_Linux_x86_64.tar.gz" \
+      | tar -xz -C /usr/local/bin crane
       image_refs=$(cat /workspace/image_refs.txt)
 
       echo "Extracting RootFS layers"
