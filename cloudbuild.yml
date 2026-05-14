@@ -49,7 +49,7 @@ steps:
       docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG} \
         echo "Container is running successfully"
 
-# Step 3: List all images in the repository
+# Step 3: List all images currently in the repository
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'List repository images'
   entrypoint: 'bash'
@@ -87,12 +87,17 @@ steps:
         [ -z "$image_ref" ] && continue
         echo "Inspecting image: $image_ref"
 
-        layers=$(crane config "$image_ref" | jq -r '.rootfs.diff_ids | join(" ")') || {
-          echo "WARNING: Failed to extract RootFS layers for $image_ref" >&2
+        layers=$(crane config "$image_ref" \
+          | tr '{' '\n' | tr '}' '\n' | tr ',' '\n' \
+          | grep '"sha256:' \
+          | tr -d '"' \
+          | tr '\n' ' ' \
+          | xargs) || {
+          echo "WARNING: crane config failed for $image_ref" >&2
           continue
         }
 
-        if [ -z "$layers" ] || [ "$layers" = "null" ]; then
+        if [ -z "$layers" ]; then
           echo "WARNING: No layers found for $image_ref" >&2
           continue
         fi
@@ -117,12 +122,24 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
+      # Guard: abort if repo_rootfs.txt is empty rather than push blindly
+      if [ ! -s /workspace/repo_rootfs.txt ]; then
+        echo "ERROR: repo_rootfs.txt is empty — layer extraction failed in previous step." >&2
+        exit 1
+      fi
+
       latest_rootfs=$(cat /workspace/latest_rootfs.txt | tr -s ' ' | xargs)
 
       if [ -z "$latest_rootfs" ]; then
-        echo "ERROR: latest_rootfs.txt is empty. Cannot compare." >&2
+        echo "ERROR: latest_rootfs.txt is empty." >&2
         exit 1
       fi
+
+      echo "New image layers:     $latest_rootfs"
+      echo ""
+      echo "Repository layers:"
+      cat /workspace/repo_rootfs.txt
+      echo ""
 
       matched=false
       while IFS= read -r line; do
@@ -135,7 +152,7 @@ steps:
       done < /workspace/repo_rootfs.txt
 
       if [ "$matched" = "true" ]; then
-        echo "An image with identical RootFS layers already exists. Skipping push."
+        echo "Identical image already exists in repository. Skipping push."
       else
         echo "No matching image found. Pushing new image."
         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
