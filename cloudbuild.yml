@@ -115,7 +115,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Testing the image by running a container"
       echo "----------------------------------------------------------------------------------------------------------"
-      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
+      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG
         echo "Container is running successfully"
 
 # Step 4: Extract RootFS layers of existing repository images using crane
