@@ -22,7 +22,8 @@ steps:
       gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
         --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
 
-      gcloud artifacts docker tags list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE} --format="value(tag)" > /workspace/image_tags.txt
+      gcloud artifacts docker tags list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE} \
+        --format="value(tag)" > /workspace/image_tags.txt
 
       echo "Image references found:"
       cat /workspace/image_refs.txt
@@ -121,8 +122,6 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Extracting RootFS layers of repository images using crane"
       echo "----------------------------------------------------------------------------------------------------------"
-
-      : > /workspace/repo_rootfs.txt
       
       while IFS= read -r image_ref; do
         [ -z "$image_ref" ] && continue
@@ -174,9 +173,7 @@ steps:
       REPO_ROOTFS="/workspace/repo_rootfs.txt"
 
       FULL_IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG"
-
-      NEW_TAG=$$(cat /workspace/updated_tag.txt)
-
+      
       # 1. Validate that the new RootFS data is not empty before proceeding
 
       if [[ -z "$$NEW_ROOTFS" ]]; then
@@ -199,10 +196,10 @@ steps:
 
       if grep -Fxq "$$NEW_ROOTFS" "$$REPO_ROOTFS"; then
           echo "MATCH FOUND: An image with these identical layers already exists."
-          echo "Action: Skipping push for $NEW_TAG."
+          echo "Action: Skipping push for $$NEW_TAG."
         else
           echo "NO MATCH: This is a unique build."
-          echo "Action: Pushing $FULL_IMAGE_NAME"
+          echo "Action: Pushing $$FULL_IMAGE_NAME"
           docker push "$$FULL_IMAGE_NAME"
         fi
 
