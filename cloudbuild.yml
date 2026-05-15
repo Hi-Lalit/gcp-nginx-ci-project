@@ -115,7 +115,9 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Testing the image by running a container"
       echo "----------------------------------------------------------------------------------------------------------"
-      docker run -d --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
+      echo "Container ID of Built Image:"
+      docker run -d --rm --name nginx-app ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
+      echo "Running container to test the image."
       docker ps
       echo "Docker Image successfully build and container is running. Test passed."
 
@@ -182,7 +184,7 @@ steps:
 
       NEW_TAG=$$(cat /workspace/tag.txt)
 
-      NEW_ROOTFS=$$(cat /workspace/latest_rootfs.txt)
+      NEW_ROOTFS=$$(cat /workspace/new_rootfs.txt)
 
       REPO_ROOTFS="/workspace/repo_rootfs.txt"
 
