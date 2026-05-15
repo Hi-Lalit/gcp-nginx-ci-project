@@ -37,8 +37,7 @@ steps:
           echo "Tag file is empty or missing."
           updated_tag="v1.01"
           echo "Using first tag: $${updated_tag}"
-          # Optionally save it: echo "1.01" > tag.txt
-          
+                    
       else
           # Remove 'v' prefix if it exists in the file to perform math
           clean_data=$$(echo "$data" | sed 's/^v//')
@@ -56,7 +55,7 @@ steps:
       echo "$${updated_tag}" > /workspace/updated_tag.txt
 
 
-# Step 1: Build the image and save to a tarball (no push)
+# Step 2: Build the image and save to a tarball (no push)
 - name: 'gcr.io/kaniko-project/executor:debug'
   id: 'Build image'
   entrypoint: 'sh'
@@ -77,7 +76,7 @@ steps:
         --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache \
         --reproducible=true
 
-# Step 2: Load image into Docker, extract RootFS layers, run tests
+# Step 3: Load image into Docker, extract RootFS layers, run tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Load, inspect & test image'
   entrypoint: 'bash'
@@ -124,7 +123,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
 
       : > /workspace/repo_rootfs.txt
-
+      
       while IFS= read -r image_ref; do
         [ -z "$image_ref" ] && continue
         echo "Inspecting image: $image_ref"
@@ -166,42 +165,45 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
+      # Load variables
+
+      NEW_TAG=$(cat /workspace/updated_tag.txt)
+
+      NEW_ROOTFS=$(cat /workspace/latest_rootfs.txt)
+
+      REPO_ROOTFS="/workspace/repo_rootfs.txt"
+
+      FULL_IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${NEW_TAG}"
+
       NEW_TAG=$$(cat /workspace/updated_tag.txt)
 
-      # Guard: abort if repo_rootfs.txt is empty rather than push blindly
-      if [ ! -s /workspace/repo_rootfs.txt ]; then
-        echo "ERROR: repo_rootfs.txt is empty — layer extraction failed in previous step." >&2
+      # 1. Validate that the new RootFS data is not empty before proceeding
+
+      if [[ -z "$NEW_ROOTFS" ]]; then
+        echo "ERROR: latest_rootfs.txt is empty. Cannot compare." >&2
         exit 1
       fi
 
-      latest_rootfs=$(cat /workspace/latest_rootfs.txt | tr -s ' ' | xargs)
 
-      if [ -z "$latest_rootfs" ]; then
-        echo "ERROR: latest_rootfs.txt is empty." >&2
-        exit 1
-      fi
-
-      echo "New image layers:     $latest_rootfs"
-      echo ""
-      echo "Repository layers:"
-      cat /workspace/repo_rootfs.txt
-      echo ""
-
-      matched=false
-      while IFS= read -r line; do
-        [ -z "$line" ] && continue
-        normalized=$(echo "$line" | tr -s ' ' | xargs)
-        if [ "$normalized" = "$latest_rootfs" ]; then
-          matched=true
-          break
-        fi
-      done < /workspace/repo_rootfs.txt
-
-      if [ "$matched" = "true" ]; then
-        echo "Identical image already exists in repository. Skipping push."
-      else
-        echo "No matching image found. Pushing new image."
+      if [[ ! -s "$REPO_ROOTFS" ]]; then
+        echo "WARNING: repo_rootfs.txt is empty or missing. No existing images to compare against." >&2
+        echo "Proceeding to push the new image without comparison."
         docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG
+        exit 0
       fi
+      
+      # 2. Compare layers using grep
+      # -F: Fixed string (not regex)
+      # -x: Match whole line exactly
+      # -q: Quiet mode (returns 0 if found, 1 if not)
+
+      if grep -Fxq "$NEW_ROOTFS" "$REPO_ROOTFS"; then
+          echo "MATCH FOUND: An image with these identical layers already exists."
+          echo "Action: Skipping push for $NEW_TAG."
+        else
+          echo "NO MATCH: This is a unique build."
+          echo "Action: Pushing $FULL_IMAGE_NAME"
+          docker push "$FULL_IMAGE_NAME"
+        fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
