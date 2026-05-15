@@ -52,7 +52,7 @@ steps:
       else
 
           # Remove 'v' prefix and sort tags to find the latest version
-          
+
           latest_tag=$$(echo "$repo_image_tag" \
             | sed 's/^v//' \
             | sort -V \
@@ -61,9 +61,7 @@ steps:
           echo "Latest tag: v$$latest_tag"
 
           incremented_tag=$$(awk "BEGIN {printf \"%.2f\", $$latest_tag + 0.01}")
-
-          echo "Next tag: v$$incremented_tag"
-          
+                   
           # Format the incremented number to have two decimal places and add 'v' prefix back
           updated_tag="v$$incremented_tag"
           echo "Updated tag: $$updated_tag"
