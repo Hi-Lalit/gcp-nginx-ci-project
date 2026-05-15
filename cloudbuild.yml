@@ -115,8 +115,8 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Testing the image by running a container"
       echo "----------------------------------------------------------------------------------------------------------"
-      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG
-        echo "Container is running successfully"
+      docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
+      echo "Docker Image successfully build and container is running. Test passed."
 
 # Step 4: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
