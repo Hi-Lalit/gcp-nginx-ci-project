@@ -19,42 +19,51 @@ steps:
       echo "Listing all images in the repository"
       echo "----------------------------------------------------------------------------------------------------------"
 
+      # 1. List all images and tags in the repository and save to files
+      
       gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
-        --format="value(format('{0}@{1}', package, version))" > /workspace/image_refs.txt
+        --format="value(format('{0}@{1}', package, version))" > /workspace/repo_image_list.txt
 
       gcloud artifacts docker tags list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE} \
-        --format="value(tag)" > /workspace/image_tags.txt
+        --format="value(tag)" > /workspace/repo_image_tags.txt
+      
+      # 2. Load Repository image references and tags into variables for later use
 
-      echo "Image references found:"
-      cat /workspace/image_refs.txt
+      repo_image_list=$$(cat /workspace/repo_image_list.txt 2>/dev/null)
+      repo_image_tag=$$(cat /workspace/repo_image_tags.txt 2>/dev/null)
 
-      echo "Image tags found:"
-      cat /workspace/image_tags.txt
-
-      data=$$(cat /workspace/image_tags.txt 2>/dev/null)
-
-      # 2. Check if the file is missing or the variable is empty
-      if [ -z "$$data" ]; then
-          echo "Tag file is empty or missing."
-          updated_tag="v1.01"
-          echo "Using first tag: $${updated_tag}"
-                    
+      # 3. Check if both files are empty and print appropriate messages
+      
+      if [ -z "$$repo_image_list" ]; then
+        echo "Images not found in the repository. This is the first image to build and push."
+        
       else
-          # Remove 'v' prefix if it exists in the file to perform math
-          clean_data=$$(echo "$data" | sed 's/^v//')
-          
-          echo "Last Version tag: $data"
-          
-          # 3. Calculate new tag using awk
-          incremented_num=$$(awk "BEGIN {printf \"%.2f\", $clean_data + 0.01}")
-          
-          # 4. Re-attach the 'v' prefix
-          updated_tag="v$${incremented_num}"
-          echo "Updated tag: $${updated_tag}"
+        echo "Found images in the repository:"
+        echo "List of images is: $$repo_image_list"        
       fi
+    
+      # 4. Check if the repo_image_tag variable is missing or the variable is empty
 
-      echo "$${updated_tag}" > /workspace/updated_tag.txt
+      if [ -z "$$repo_image_tag" ]; then
+          echo "Tag file is empty or missing."
+          echo "v1.01" > /workspace/tag.txt
+          echo "This is the first image to build with tag: v1.01"
 
+      else
+
+          # Remove 'v' prefix if it exists in the file to perform math
+          tag_num=$$(echo "$repo_image_tag" | sed 's/^v//')
+          
+          echo "Last Version tag: $repo_image_tag"
+          
+          # Updated tag by incrementing the last version number by 0.01
+          incremented_tag=$$(awk "BEGIN {printf \"%.2f\", $tag_num + 0.01}")
+          
+          # Format the incremented number to have two decimal places and add 'v' prefix back
+          updated_tag="v$$incremented_tag"
+          echo "Updated tag: $$updated_tag"
+          echo "$$updated_tag" > /workspace/tag.txt
+      fi
 
 # Step 2: Build the image and save to a tarball (no push)
 - name: 'gcr.io/kaniko-project/executor:debug'
@@ -66,12 +75,12 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Building the image with Kaniko and saving to tarball (no push)"
       echo "----------------------------------------------------------------------------------------------------------"
-      NEW_TAG=$$(cat /workspace/updated_tag.txt)
+      TAG=$$(cat /workspace/tag.txt)
 
       /kaniko/executor --context=dir://app \
         --no-push \
         --tar-path=/workspace/image.tar \
-        --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
+        --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
         --cache=true \
         --cache-ttl=168h \
         --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache \
@@ -86,7 +95,7 @@ steps:
     - |
       set -e
 
-      NEW_TAG=$$(cat /workspace/updated_tag.txt)
+      TAG=$$(cat /workspace/tag.txt)
 
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Loading the built image from tarball into Docker"
@@ -95,12 +104,13 @@ steps:
 
       apt-get update -qq && apt-get install -y -qq jq
 
-      echo "Extracting RootFS layers and saving to latest_rootfs.txt"
-      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
-        | jq -r '.[] | .RootFS.Layers | join(" ")' > /workspace/latest_rootfs.txt
+      echo "Inspecting the loaded image to extract RootFS layers and save to file"
 
-      echo "Latest image RootFS layers:"
-      cat /workspace/latest_rootfs.txt
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
+        | jq -r '.[] | .RootFS.Layers | join(" ")' > /workspace/new_rootfs.txt
+
+      echo "New image RootFS layers:"
+      cat /workspace/new_rootfs.txt
 
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Testing the image by running a container"
@@ -108,11 +118,9 @@ steps:
       docker run --rm ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG \
         echo "Container is running successfully"
 
-
-
 # Step 4: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
-  id: 'Extract RootFS layers of repository images'
+  id: 'Inspect RootFS layers of repository images'
   entrypoint: 'sh'
   args:
     - '-c'
@@ -120,36 +128,41 @@ steps:
       set -e
 
       echo "----------------------------------------------------------------------------------------------------------"
-      echo "Extracting RootFS layers of repository images using crane"
+      echo "Extracting RootFS layers of repository images"
       echo "----------------------------------------------------------------------------------------------------------"
-      
-      while IFS= read -r image_ref; do
-        [ -z "$image_ref" ] && continue
-        echo "Inspecting image: $image_ref"
+      if [ ! -s /workspace/repo_image_list.txt ]; then
+        echo "repo_image_list.txt is empty. Skipping layer extraction."
+      else
+        while IFS= read -r image_ref; do
+          [ -z "$image_ref" ] && continue
 
-        raw=$(crane config "$image_ref") || {
-          echo "WARNING: crane config failed for $image_ref" >&2
-          continue
-        }
+          echo "Inspecting image: $image_ref"
 
-        layers=$(echo "$raw" \
-          | grep -o '"diff_ids":\[[^]]*\]' \
-          | grep -o '"sha256:[a-f0-9]*"' \
-          | tr -d '"' \
-          | tr '\n' ' ' \
-          | xargs)
+          raw=$(crane config "$image_ref") || {
+            echo "WARNING: crane config failed for $image_ref" >&2
+            continue
+          }
 
-        if [ -z "$layers" ]; then
-          echo "WARNING: No layers found for $image_ref" >&2
-          continue
-        fi
+          layers=$(echo "$raw" \
+            | grep -o '"diff_ids":\[[^]]*\]' \
+            | grep -o '"sha256:[a-f0-9]*"' \
+            | tr -d '"' \
+            | tr '\n' ' ' \
+            | xargs)
 
-        echo "  -> Layers: $layers"
-        echo "$layers" >> /workspace/repo_rootfs.txt
-      done < /workspace/image_refs.txt
+          if [ -z "$layers" ]; then
+            echo "WARNING: No layers found for $image_ref" >&2
+            continue
+          fi
 
-      echo "RootFS layers of repository images:"
-      cat /workspace/repo_rootfs.txt
+          echo "  -> Layers: $layers"
+          echo "$layers" >> /workspace/repo_rootfs.txt
+
+        done < /workspace/repo_image_list.txt
+
+        echo "RootFS layers of repository images:"
+        cat /workspace/repo_rootfs.txt
+      fi
 
 # Step 5: Compare RootFS layers and conditionally push
 - name: 'gcr.io/cloud-builders/docker'
@@ -166,7 +179,7 @@ steps:
 
       # Load variables
 
-      NEW_TAG=$$(cat /workspace/updated_tag.txt)
+      NEW_TAG=$$(cat /workspace/tag.txt)
 
       NEW_ROOTFS=$$(cat /workspace/latest_rootfs.txt)
 
@@ -177,10 +190,9 @@ steps:
       # 1. Validate that the new RootFS data is not empty before proceeding
 
       if [[ -z "$$NEW_ROOTFS" ]]; then
-        echo "ERROR: latest_rootfs.txt is empty. Cannot compare." >&2
+        echo "ERROR: $$FULL_IMAGE_NAME has an empty RootFS or may be not built." >&2
         exit 1
       fi
-
 
       if [[ ! -s "$$REPO_ROOTFS" ]]; then
         echo "WARNING: repo_rootfs.txt is empty or missing. No existing images to compare against." >&2
@@ -190,17 +202,24 @@ steps:
       fi
       
       # 2. Compare layers using grep
-      # -F: Fixed string (not regex)
-      # -x: Match whole line exactly
-      # -q: Quiet mode (returns 0 if found, 1 if not)
 
-      if grep -Fxq "$$NEW_ROOTFS" "$$REPO_ROOTFS"; then
-          echo "MATCH FOUND: An image with these identical layers already exists."
-          echo "Action: Skipping push for $$NEW_TAG."
-        else
-          echo "NO MATCH: This is a unique build."
-          echo "Action: Pushing $$FULL_IMAGE_NAME"
-          docker push "$$FULL_IMAGE_NAME"
+      match_found=true
+
+      for layer in $$NEW_ROOTFS; do
+        if ! grep -Fq "$$layer" "$$REPO_ROOTFS"; then
+          match_found=false
+          break
         fi
+      done
+
+      if $$match_found; then
+        echo "MATCH FOUND: All layers already exist."
+        echo "Action: Skipping push for $$NEW_TAG."
+      else
+        echo "NO MATCH: Unique layers detected."
+        echo "Action: Pushing $$FULL_IMAGE_NAME"
+
+        docker push "$$FULL_IMAGE_NAME"
+      fi
 
 logsBucket: 'gs://${_LOG_BUCKET}'
