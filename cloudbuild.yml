@@ -51,13 +51,18 @@ steps:
 
       else
 
-          # Remove 'v' prefix if it exists in the file to perform math
-          tag_num=$$(echo "$repo_image_tag" | sed 's/^v//')
+          # Remove 'v' prefix and sort tags to find the latest version
           
-          echo "Last Version tag: $repo_image_tag"
-          
-          # Updated tag by incrementing the last version number by 0.01
-          incremented_tag=$$(awk "BEGIN {printf \"%.2f\", $tag_num + 0.01}")
+          latest_tag=$$(echo "$repo_image_tag" \
+            | sed 's/^v//' \
+            | sort -V \
+            | tail -n 1)
+
+          echo "Latest tag: v$$latest_tag"
+
+          incremented_tag=$$(awk "BEGIN {printf \"%.2f\", $$latest_tag + 0.01}")
+
+          echo "Next tag: v$$incremented_tag"
           
           # Format the incremented number to have two decimal places and add 'v' prefix back
           updated_tag="v$$incremented_tag"
@@ -67,7 +72,7 @@ steps:
 
 # Step 2: Build the image and save to a tarball (no push)
 - name: 'gcr.io/kaniko-project/executor:debug'
-  id: 'Build image'
+  id: 'Build Docker image'
   entrypoint: 'sh'
   args:
     - '-c'
@@ -88,7 +93,7 @@ steps:
 
 # Step 3: Load image into Docker, extract RootFS layers, run tests
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'Load, inspect & test image'
+  id: 'Load, inspect & test Docker image'
   entrypoint: 'bash'
   args:
     - '-c'
