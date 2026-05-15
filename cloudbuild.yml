@@ -8,7 +8,7 @@ steps:
 
 # Step 1: List all images currently in the repository
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: 'List repository images'
+  id: 'Fetch repository images'
   entrypoint: 'bash'
   args:
     - '-c'
