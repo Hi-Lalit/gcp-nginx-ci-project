@@ -80,6 +80,9 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       TAG=$$(cat /workspace/tag.txt)
 
+      # The shell generates this automatically right now
+      BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
       /kaniko/executor --context=dir://app \
         --no-push \
         --tar-path=/workspace/image.tar \
@@ -88,6 +91,7 @@ steps:
         --cache-ttl=168h \
         --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache \
         --reproducible=true
+        --label=build-date=$$BUILD_DATE 
 
 # Step 3: Load image into Docker, extract RootFS layers, run tests
 - name: 'gcr.io/cloud-builders/docker'
