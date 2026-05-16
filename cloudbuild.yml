@@ -90,7 +90,7 @@ steps:
         --cache=true \
         --cache-ttl=168h \
         --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/cache \
-        --reproducible=true
+        --reproducible=true \
         --label=build-date=$$BUILD_DATE 
 
 # Step 3: Load image into Docker, extract RootFS layers, run tests
