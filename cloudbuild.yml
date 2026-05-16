@@ -111,6 +111,10 @@ steps:
 
       apt-get update -qq && apt-get install -y -qq jq
 
+      echo "Inspect the loaded image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG"
+
+      docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
+
       echo "Inspecting the loaded image to extract RootFS layers and save to file"
 
       docker inspect ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
