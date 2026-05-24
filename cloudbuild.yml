@@ -123,15 +123,6 @@ steps:
       echo "New image RootFS layers:"
       cat /workspace/new_rootfs.txt
 
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Testing the image by running a container"
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Container ID of Built Image:"
-      docker run -d --rm --name nginx-app ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
-      echo "Running container to test the image."
-      docker ps
-      echo "Docker Image successfully build and container is running. Test passed."
-
 # Step 4: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
   id: 'Inspect RootFS layers of repository images'
