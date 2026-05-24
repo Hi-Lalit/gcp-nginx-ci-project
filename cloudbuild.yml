@@ -227,4 +227,16 @@ steps:
         docker push "$$FULL_IMAGE_NAME"
       fi
 
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      TAG=$$(cat /workspace/tag.txt)
+
+      gcloud deploy releases create "release-$$TAG" \
+        --delivery-pipeline=my-cd-pipeline \
+        --region=${_REGION} \
+        --images="nginx-app=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG"
+
 logsBucket: 'gs://${_LOG_BUCKET}'
