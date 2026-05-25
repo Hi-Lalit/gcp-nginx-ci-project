@@ -185,9 +185,8 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
-      gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
-
       # Load variables
+      
       NEW_TAG=$$(cat /workspace/tag.txt)
       NEW_ROOTFS=$$(cat /workspace/new_rootfs.txt)
       REPO_ROOTFS="/workspace/repo_rootfs.txt"
