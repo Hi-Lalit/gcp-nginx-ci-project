@@ -134,8 +134,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Extracting RootFS layers of repository images"
       echo "----------------------------------------------------------------------------------------------------------"
-      
-      # FIXED: Ensure file exists so Step 5 doesn't complain about missing files
+            
       touch /workspace/repo_rootfs.txt
 
       if [ ! -s /workspace/repo_image_list.txt ]; then
@@ -186,7 +185,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
 
       # Load variables
-      
+
       NEW_TAG=$$(cat /workspace/tag.txt)
       NEW_ROOTFS=$$(cat /workspace/new_rootfs.txt)
       REPO_ROOTFS="/workspace/repo_rootfs.txt"
