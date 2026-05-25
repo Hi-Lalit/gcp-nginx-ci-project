@@ -1,12 +1,12 @@
-substitutions:
-  _REGION: 'us-east1'
-  _REPOSITORY: 'docker-repo'
-  _IMAGE: 'nginx-app'
-  _LOG_BUCKET: 'devops_ci_logs'
+# substitutions:
+#   _REGION: 'us-east1'
+#   _REPOSITORY: 'docker-repo'
+#   _IMAGE: 'nginx-app'
+#   _LOG_BUCKET: 'devops_ci_logs'
 
 steps:
 
-# Step 1: List all images currently in the repository
+# Step 1: List all images currently in the repository and calculate the next semver tag
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
   entrypoint: 'bash'
@@ -20,7 +20,6 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
 
       # 1. List all images and tags in the repository and save to files
-      
       gcloud artifacts docker images list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY} \
         --format="value(format('{0}@{1}', package, version))" > /workspace/repo_image_list.txt
 
@@ -28,44 +27,45 @@ steps:
         --format="value(tag)" > /workspace/repo_image_tags.txt
       
       # 2. Load Repository image references and tags into variables for later use
-
       repo_image_list=$$(cat /workspace/repo_image_list.txt 2>/dev/null)
       repo_image_tag=$$(cat /workspace/repo_image_tags.txt 2>/dev/null)
 
-      # 3. Check if both files are empty and print appropriate messages
-      
       if [ -z "$$repo_image_list" ]; then
         echo "Images not found in the repository. This is the first image to build and push."
-        
       else
         echo "Found images in the repository:"
         echo "List of images is: $$repo_image_list"        
       fi
     
-      # 4. Check if the repo_image_tag variable is missing or the variable is empty
-
+      # 3. Handle Semantic Versioning calculation
       if [ -z "$$repo_image_tag" ]; then
           echo "Tag file is empty or missing."
-          echo "v1.01" > /workspace/tag.txt
-          echo "This is the first image to build with tag: v1.01"
-
+          echo "v1.0.1" > /workspace/tag.txt
+          echo "This is the first image to build with tag: v1.0.1"
       else
-
-          # Remove 'v' prefix and sort tags to find the latest version
-
-          latest_tag=$$(echo "$repo_image_tag" \
+          # Filter for tags that specifically match the vX.Y.Z semver format
+          latest_tag=$$(echo "$$repo_image_tag" \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
             | sed 's/^v//' \
             | sort -V \
             | tail -n 1)
 
-          echo "Latest tag: v$$latest_tag"
+          # Fallback if tags exist but none match vX.Y.Z
+          if [ -z "$$latest_tag" ]; then
+              echo "No valid semver tags found. Starting chain at v1.0.1"
+              echo "v1.0.1" > /workspace/tag.txt
+          else
+              echo "Latest semantic tag found: v$$latest_tag"
+              
+              IFS='.' read -r major minor patch <<< "$$latest_tag"
 
-          incremented_tag=$$(awk "BEGIN {printf \"%.2f\", $$latest_tag + 0.01}")
-                   
-          # Format the incremented number to have two decimal places and add 'v' prefix back
-          updated_tag="v$$incremented_tag"
-          echo "Updated tag: $$updated_tag"
-          echo "$$updated_tag" > /workspace/tag.txt
+              # Safely increment the patch number
+              next_patch=$$(($$patch + 1))
+              updated_tag="v$${major}.$${minor}.$${next_patch}"
+
+              echo "Updated tag: $$updated_tag"
+              echo "$$updated_tag" > /workspace/tag.txt
+          fi
       fi
 
 # Step 2: Build the image and save to a tarball (no push)
@@ -80,8 +80,7 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       TAG=$$(cat /workspace/tag.txt)
 
-      # The shell generates this automatically right now
-      BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+      BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
       /kaniko/executor --context=dir://app \
         --no-push \
@@ -135,33 +134,37 @@ steps:
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Extracting RootFS layers of repository images"
       echo "----------------------------------------------------------------------------------------------------------"
+      
+      # FIXED: Ensure file exists so Step 5 doesn't complain about missing files
+      touch /workspace/repo_rootfs.txt
+
       if [ ! -s /workspace/repo_image_list.txt ]; then
         echo "repo_image_list.txt is empty. Skipping layer extraction."
       else
         while IFS= read -r image_ref; do
-          [ -z "$image_ref" ] && continue
+          [ -z "$$image_ref" ] && continue
 
-          echo "Inspecting image: $image_ref"
+          echo "Inspecting image: $$image_ref"
 
-          raw=$(crane config "$image_ref") || {
-            echo "WARNING: crane config failed for $image_ref" >&2
+          raw=$$(crane config "$$image_ref") || {
+            echo "WARNING: crane config failed for $$image_ref" >&2
             continue
           }
 
-          layers=$(echo "$raw" \
+          layers=$$(echo "$$raw" \
             | grep -o '"diff_ids":\[[^]]*\]' \
             | grep -o '"sha256:[a-f0-9]*"' \
             | tr -d '"' \
             | tr '\n' ' ' \
             | xargs)
 
-          if [ -z "$layers" ]; then
-            echo "WARNING: No layers found for $image_ref" >&2
+          if [ -z "$$layers" ]; then
+            echo "WARNING: No layers found for $$image_ref" >&2
             continue
           fi
 
-          echo "  -> Layers: $layers"
-          echo "$layers" >> /workspace/repo_rootfs.txt
+          echo "  -> Layers: $$layers"
+          echo "$$layers" >> /workspace/repo_rootfs.txt
 
         done < /workspace/repo_image_list.txt
 
@@ -182,18 +185,15 @@ steps:
       echo "Comparing RootFS layers of new image with existing repository images"
       echo "----------------------------------------------------------------------------------------------------------"
 
+      gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
+
       # Load variables
-
       NEW_TAG=$$(cat /workspace/tag.txt)
-
       NEW_ROOTFS=$$(cat /workspace/new_rootfs.txt)
-
       REPO_ROOTFS="/workspace/repo_rootfs.txt"
-
       FULL_IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG"
       
       # 1. Validate that the new RootFS data is not empty before proceeding
-
       if [[ -z "$$NEW_ROOTFS" ]]; then
         echo "ERROR: $$FULL_IMAGE_NAME has an empty RootFS or may be not built." >&2
         exit 1
@@ -202,41 +202,19 @@ steps:
       if [[ ! -s "$$REPO_ROOTFS" ]]; then
         echo "WARNING: repo_rootfs.txt is empty or missing. No existing images to compare against." >&2
         echo "Proceeding to push the new image without comparison."
-        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$NEW_TAG
+        docker push "$$FULL_IMAGE_NAME"
         exit 0
       fi
       
-      # 2. Compare layers using grep
-
-      match_found=true
-
-      for layer in $$NEW_ROOTFS; do
-        if ! grep -Fq "$$layer" "$$REPO_ROOTFS"; then
-          match_found=false
-          break
-        fi
-      done
-
-      if $$match_found; then
-        echo "MATCH FOUND: All layers already exist."
+      # 2. Compare the full layer chain as a single exact line against the repo history
+      if grep -Fxq "$$NEW_ROOTFS" "$$REPO_ROOTFS"; then
+        echo "MATCH FOUND: An image with this exact layer combination already exists."
         echo "Action: Skipping push for $$NEW_TAG."
       else
-        echo "NO MATCH: Unique layers detected."
+        echo "NO MATCH: Unique layer combination detected."
         echo "Action: Pushing $$FULL_IMAGE_NAME"
 
         docker push "$$FULL_IMAGE_NAME"
       fi
-
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      TAG=$$(cat /workspace/tag.txt)
-
-      gcloud deploy releases create "release-$$TAG" \
-        --delivery-pipeline=my-cd-pipeline \
-        --region=${_REGION} \
-        --images="nginx-app=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG"
 
 logsBucket: 'gs://${_LOG_BUCKET}'
