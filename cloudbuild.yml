@@ -230,21 +230,4 @@ steps:
         --branch=${_BRANCH_NAME} \
         --region=${_DEPLOY_REGION}
 
-# - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-#   id: 'Cleanup local Docker images'
-#   entrypoint: 'bash'
-#   args:
-#     - '-c'
-#     - |
-#       set -e
-
-#       echo "----------------------------------------------------------------------------------------------------------"
-#       echo "Cleaning up local Docker images to free space"
-#       echo "----------------------------------------------------------------------------------------------------------"
-
-#       TAG=$$(cat /workspace/tag.txt)
-
-#       docker rmi ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG || true
-#       docker rmi $(docker images -q) || true
-
 logsBucket: 'gs://${_LOG_BUCKET}'
