@@ -215,4 +215,36 @@ steps:
         docker push "$$FULL_IMAGE_NAME"
       fi
 
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdl'
+  id: 'Run cd-pipeline'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      set -e
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Running cd-pipeline script to trigger deployment to cloud run"
+      echo "----------------------------------------------------------------------------------------------------------"
+
+      gcloud builds triggers run ca49e115-9cb3-4d7a-8d25-f6884dfdcac9 \
+        --branch=${_BRANCH_NAME} \
+        --region=${_DEPLOY_REGION}
+
+# - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+#   id: 'Cleanup local Docker images'
+#   entrypoint: 'bash'
+#   args:
+#     - '-c'
+#     - |
+#       set -e
+
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       echo "Cleaning up local Docker images to free space"
+#       echo "----------------------------------------------------------------------------------------------------------"
+
+#       TAG=$$(cat /workspace/tag.txt)
+
+#       docker rmi ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG || true
+#       docker rmi $(docker images -q) || true
+
 logsBucket: 'gs://${_LOG_BUCKET}'
