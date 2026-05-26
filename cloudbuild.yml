@@ -215,7 +215,7 @@ steps:
         docker push "$$FULL_IMAGE_NAME"
       fi
 
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdl'
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Run cd-pipeline'
   entrypoint: 'bash'
   args:
@@ -226,7 +226,7 @@ steps:
       echo "Running cd-pipeline script to trigger deployment to cloud run"
       echo "----------------------------------------------------------------------------------------------------------"
 
-      gcloud builds triggers run ca49e115-9cb3-4d7a-8d25-f6884dfdcac9 \
+      gcloud builds triggers run ${_TRIGGER_ID} \
         --branch=${_BRANCH_NAME} \
         --region=${_DEPLOY_REGION}
 
