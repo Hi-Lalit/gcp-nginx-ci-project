@@ -154,9 +154,12 @@ steps:
   
         # Read the tag dynamically from the workspace file
         TAG=$$(cat /workspace/tag.txt)
-  
-        # Run the container-structure-test binary via Docker runner
-        docker run --rm \
+        
+        echo "--- Checking workspace contents ---"
+        ls -la /workspace
+        echo "-----------------------------------"
+
+
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /workspace:/workspace \
           gcr.io/gcp-runtimes/container-structure-test:latest test \
