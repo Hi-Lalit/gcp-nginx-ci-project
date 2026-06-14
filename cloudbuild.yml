@@ -246,7 +246,8 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/345892392411/secrets/SONAR_TOKEN_SECRET/versions/latest
+    - versionName: projects/devops-project-495401/secrets/SONAR_TOKEN_SECRET/versions/latest
       env: '_SONAR_TOKEN'
+
 
 logsBucket: 'gs://${_LOG_BUCKET}'
