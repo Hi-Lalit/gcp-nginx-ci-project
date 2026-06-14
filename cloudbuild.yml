@@ -1,12 +1,26 @@
-# substitutions:
-#   _REGION: 'us-east1'
-#   _REPOSITORY: 'docker-repo'
-#   _IMAGE: 'nginx-app'
-#   _LOG_BUCKET: 'devops_ci_logs'
-
 steps:
 
 # Step 1: List all images currently in the repository and calculate the next semver tag
+- name: 'sonarsource/sonar-scanner-cli:latest'
+  id: 'SonarQube analysis'
+  entrypoint: 'bash'
+  secretEnv: ['SONAR_TOKEN']
+  args:
+    - '-c'
+    - |
+      set -e
+
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Running SonarQube analysis"
+      echo "----------------------------------------------------------------------------------------------------------"
+
+      sonar-scanner \
+        -Dsonar.projectKey=${_SONAR_PROJECT_KEY} \
+        -Dsonar.organization=${_SONAR_ORGANIZATION} \
+        -Dsonar.sources=app \
+        -Dsonar.host.url=${_SONAR_HOST_URL} \
+        -Dsonar.login=$$SONAR_TOKEN
+
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
   entrypoint: 'bash'
@@ -94,7 +108,7 @@ steps:
 
 # Step 3: Load image into Docker, extract RootFS layers, run tests
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'Load, inspect & test Docker image'
+  id: 'Load & inspect Docker image'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -215,19 +229,19 @@ steps:
         docker push "$$FULL_IMAGE_NAME"
       fi
 
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: 'Run cd-pipeline'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      set -e
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Running cd-pipeline script to trigger deployment to cloud run"
-      echo "----------------------------------------------------------------------------------------------------------"
+# - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+#   id: 'Run cd-pipeline'
+#   entrypoint: 'bash'
+#   args:
+#     - '-c'
+#     - |
+#       set -e
+#       echo "----------------------------------------------------------------------------------------------------------"
+#       echo "Running cd-pipeline script to trigger deployment to cloud run"
+#       echo "----------------------------------------------------------------------------------------------------------"
 
-      gcloud builds triggers run ${_TRIGGER_ID} \
-        --branch=${_BRANCH_NAME} \
-        --region=${_DEPLOY_REGION}
+#       gcloud builds triggers run ${_TRIGGER_ID} \
+#         --branch=${_BRANCH_NAME} \
+#         --region=${_DEPLOY_REGION}
 
 logsBucket: 'gs://${_LOG_BUCKET}'
