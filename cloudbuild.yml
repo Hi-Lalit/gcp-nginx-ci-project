@@ -11,6 +11,13 @@ steps:
       set -e
 
       echo "----------------------------------------------------------------------------------------------------------"
+      echo "Preparing workspace file permissions..."
+      echo "----------------------------------------------------------------------------------------------------------"
+      
+      # 🚨 The Fix: Create the directory first and grant explicit ownership to the runner context (ID 1000)
+      mkdir -p /workspace/sonar-cache
+      chown -R 1000:1000 /workspace/sonar-cache
+
       echo "Running SonarQube analysis"
       echo "----------------------------------------------------------------------------------------------------------"
 
@@ -21,6 +28,7 @@ steps:
         -Dsonar.host.url=${_SONAR_HOST_URL} \
         -Dsonar.login=$$_SONAR_TOKEN \
         -Dsonar.working.directory=/workspace/sonar-cache
+
 
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
