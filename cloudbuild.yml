@@ -19,7 +19,8 @@ steps:
         -Dsonar.organization=${_SONAR_ORGANIZATION} \
         -Dsonar.sources=app \
         -Dsonar.host.url=${_SONAR_HOST_URL} \
-        -Dsonar.login=$$_SONAR_TOKEN
+        -Dsonar.login=$$_SONAR_TOKEN \
+        -Dsonar.working.directory=/workspace/sonar-cache
 
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
