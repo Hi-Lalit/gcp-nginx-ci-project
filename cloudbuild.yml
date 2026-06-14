@@ -11,24 +11,17 @@ steps:
       set -e
 
       echo "----------------------------------------------------------------------------------------------------------"
-      echo "Preparing workspace file permissions..."
-      echo "----------------------------------------------------------------------------------------------------------"
-      
-      # 🚨 The Fix: Create the directory first and grant explicit ownership to the runner context (ID 1000)
-      mkdir -p /workspace/sonar-cache
-      chown -R 1000:1000 /workspace/sonar-cache
-
-      echo "Running SonarQube analysis"
+      echo "Running SonarQube analysis using /tmp fallback space"
       echo "----------------------------------------------------------------------------------------------------------"
 
+      # Pointing to /tmp completely bypasses the Cloud Build root permission limits
       sonar-scanner \
         -Dsonar.projectKey=${_SONAR_PROJECT_KEY} \
         -Dsonar.organization=${_SONAR_ORGANIZATION} \
         -Dsonar.sources=app \
         -Dsonar.host.url=${_SONAR_HOST_URL} \
         -Dsonar.login=$$_SONAR_TOKEN \
-        -Dsonar.working.directory=/workspace/sonar-cache
-
+        -Dsonar.working.directory=/tmp/sonar-cache
 
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
