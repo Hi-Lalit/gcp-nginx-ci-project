@@ -1,6 +1,6 @@
 steps:
 
-# Step 1: List all images currently in the repository and calculate the next semver tag
+# Step 1: Run SonarQube analysis with /tmp fallback space to bypass root permission limits
 - name: 'sonarsource/sonar-scanner-cli:latest'
   id: 'SonarQube analysis'
   entrypoint: 'bash'
@@ -20,9 +20,10 @@ steps:
         -Dsonar.organization=${_SONAR_ORGANIZATION} \
         -Dsonar.sources=app \
         -Dsonar.host.url=${_SONAR_HOST_URL} \
-        -Dsonar.login=$$_SONAR_TOKEN \
+        -Dsonar.token=$$_SONAR_TOKEN \
         -Dsonar.working.directory=/tmp/sonar-cache
 
+# Step 2: List all images currently in the repository and calculate the next semver tag
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
   entrypoint: 'bash'
@@ -84,7 +85,7 @@ steps:
           fi
       fi
 
-# Step 2: Build the image and save to a tarball (no push)
+# Step 3: Build the image and save to a tarball (no push)
 - name: 'gcr.io/kaniko-project/executor:debug'
   id: 'Build Docker image'
   entrypoint: 'sh'
@@ -108,7 +109,7 @@ steps:
         --reproducible=true \
         --label=build-date=$$BUILD_DATE 
 
-# Step 3: Load image into Docker, extract RootFS layers, run tests
+# Step 4: Load image into Docker, extract RootFS layers, run tests
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Load & inspect Docker image'
   entrypoint: 'bash'
@@ -138,7 +139,39 @@ steps:
       echo "New image RootFS layers:"
       cat /workspace/new_rootfs.txt
 
-# Step 4: Extract RootFS layers of existing repository images using crane
+# Step 5: Run Container Structure Tests
+- name: 'gcr.io/gcp-runtimes/container-structure-test'
+  id: 'structure-test'
+  entrypoint: 'bash'
+  args: 
+    - '-c'
+    - |
+        set -e
+  
+        echo "----------------------------------------------------------------------------------------------------------"
+        echo "Running Container Structure Tests against the built image"
+        echo "----------------------------------------------------------------------------------------------------------"
+  
+        TAG=$$(cat /workspace/tag.txt)
+  
+        container-structure-test test \
+          --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
+          --config structure-test-config.yaml
+
+# Step 6: Perform a security vulnerability scan
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'vulnerability-scan'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+
+      echo "----------------------------------------------------------------------------------------------------------"
+      
+      TAG=$$(cat /workspace/tag.txt)
+      gcloud artifacts docker images scan ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG --format="value(vulnerabilitySummary)"
+
+# Step 7: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
   id: 'Inspect RootFS layers of repository images'
   entrypoint: 'sh'
@@ -187,7 +220,7 @@ steps:
         cat /workspace/repo_rootfs.txt
       fi
 
-# Step 5: Compare RootFS layers and conditionally push
+# Step 8: Compare RootFS layers and conditionally push
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Conditional push'
   entrypoint: 'bash'
