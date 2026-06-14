@@ -244,4 +244,9 @@ steps:
 #         --branch=${_BRANCH_NAME} \
 #         --region=${_DEPLOY_REGION}
 
+availableSecrets:
+  secretManager:
+    - versionName: projects/345892392411/secrets/SONAR_TOKEN_SECRET/versions/latest
+      env: '_SONAR_TOKEN'
+
 logsBucket: 'gs://${_LOG_BUCKET}'
