@@ -160,7 +160,7 @@ steps:
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /workspace:/workspace \
           gcr.io/gcp-runtimes/container-structure-test:latest test \
-            --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$TAG \
+            --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
             --config /workspace/structure-test-config.yaml
 
         echo "----------------------------------------------------------------------------------------------------------"
