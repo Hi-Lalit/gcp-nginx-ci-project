@@ -4,7 +4,7 @@ steps:
 - name: 'sonarsource/sonar-scanner-cli:latest'
   id: 'SonarQube analysis'
   entrypoint: 'bash'
-  secretEnv: ['SONAR_TOKEN']
+  secretEnv: ['SONAR_TOKEN_SECRET']
   args:
     - '-c'
     - |
@@ -19,7 +19,7 @@ steps:
         -Dsonar.organization=${_SONAR_ORGANIZATION} \
         -Dsonar.sources=app \
         -Dsonar.host.url=${_SONAR_HOST_URL} \
-        -Dsonar.login=$$SONAR_TOKEN
+        -Dsonar.login=$$SONAR_TOKEN_SECRET
 
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Fetch repository images'
