@@ -140,7 +140,7 @@ steps:
       cat /workspace/new_rootfs.txt
 
 # Step 5: Run Container Structure Tests
-- name: 'gcr.io/gcp-runtimes/container-structure-test'
+- name: 'gcr.io/cloud-builders/docker'
   id: 'structure-test'
   entrypoint: 'bash'
   args: 
@@ -152,26 +152,25 @@ steps:
         echo "Running Container Structure Tests against the built image"
         echo "----------------------------------------------------------------------------------------------------------"
   
+        # Read the tag dynamically from the workspace file
         TAG=$$(cat /workspace/tag.txt)
   
-        container-structure-test test \
-          --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
-          --config structure-test-config.yaml
+        # Run the container-structure-test binary via Docker runner
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v /workspace:/workspace \
+          gcr.io/gcp-runtimes/container-structure-test:latest test \
+            --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$TAG \
+            --config /workspace/structure-test-config.yaml
 
-# Step 6: Perform a security vulnerability scan
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: 'vulnerability-scan'
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
+        echo "----------------------------------------------------------------------------------------------------------"
 
-      echo "----------------------------------------------------------------------------------------------------------"
-      
-      TAG=$$(cat /workspace/tag.txt)
-      gcloud artifacts docker images scan ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG --format="value(vulnerabilitySummary)"
+        echo "Running security vulnerability scan against the built image"
+        echo "----------------------------------------------------------------------------------------------------------"
 
-# Step 7: Extract RootFS layers of existing repository images using crane
+        gcloud artifacts docker images scan ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG --format="value(vulnerabilitySummary)"
+
+# Step 6: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
   id: 'Inspect RootFS layers of repository images'
   entrypoint: 'sh'
@@ -220,7 +219,7 @@ steps:
         cat /workspace/repo_rootfs.txt
       fi
 
-# Step 8: Compare RootFS layers and conditionally push
+# Step 7: Compare RootFS layers and conditionally push
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Conditional push'
   entrypoint: 'bash'
