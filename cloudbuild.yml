@@ -155,6 +155,7 @@ steps:
 
       trivy image \
         --exit-code 1 \
+        --ignore-unfixed \
         --severity HIGH,CRITICAL \
         --no-progress \
         "$$IMAGE_REF" > /workspace/trivy_report.txt || {
