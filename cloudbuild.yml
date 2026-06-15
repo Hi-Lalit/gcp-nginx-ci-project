@@ -140,7 +140,7 @@ steps:
       cat /workspace/new_rootfs.txt
 
 # Step 5: Scan the image with Trivy and save results to file
-- name: 'gcr.io/aquasec/trivy:latest'
+- name: 'docker.io/aquasec/trivy:latest'
   id: 'trivy-security-scan-image'
   entrypoint: 'sh'
   args:
@@ -213,8 +213,7 @@ steps:
 
 # Step 7: Compare RootFS layers and conditionally push
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'Conditional push'
-  waitFor: ['trivy-security-scan-image']
+  id: 'Conditional push'  
   entrypoint: 'bash'
   args:
     - '-c'
