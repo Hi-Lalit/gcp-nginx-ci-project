@@ -55,8 +55,8 @@ steps:
       sleep 20
 
       STATUS=$(curl -s \
-        -u "$SONAR_TOKEN:" \
-        "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$PROJECT_KEY" \
+        -u "$_SONAR_TOKEN:" \
+        "$_SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$_SONAR_PROJECT_KEY" \
         | jq -r '.projectStatus.status')
 
       echo "Quality Gate Status: $$STATUS"
