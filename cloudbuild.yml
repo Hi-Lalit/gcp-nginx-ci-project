@@ -84,7 +84,7 @@ steps:
           WAITED=$$((WAITED + 5))
         done
 
-        echo "Final Quality Gate Status: $STATUS"
+        echo "Final Quality Gate Status: $$STATUS"
 
         if [ "$$STATUS" != "OK" ]; then
           echo "Quality Gate Failed"
