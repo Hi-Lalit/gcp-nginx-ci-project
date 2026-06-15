@@ -139,39 +139,28 @@ steps:
       echo "New image RootFS layers:"
       cat /workspace/new_rootfs.txt
 
-# Step 5: Run Container Structure Tests
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'structure-test'
-  entrypoint: 'bash'
-  args: 
+# Step 5: Scan the image with Trivy and save results to file
+- name: 'gcr.io/aquasec/trivy:latest'
+  id: 'trivy-security-scan-image'
+  entrypoint: 'sh'
+  args:
     - '-c'
     - |
-        set -e
-  
-        echo "----------------------------------------------------------------------------------------------------------"
-        echo "Running Container Structure Tests against the built image"
-        echo "----------------------------------------------------------------------------------------------------------"
-  
-        # Read the tag dynamically from the workspace file
-        TAG=$$(cat /workspace/tag.txt)
-        
-        echo "--- Checking workspace contents ---"
-        ls -la /workspace
-        echo "-----------------------------------"
+      set -e
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Scanning the built image with Trivy for vulnerabilities"
+      echo "----------------------------------------------------------------------------------------------------------"
+      TAG=$$(cat /workspace/tag.txt)
+      IMAGE_REF=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
 
-
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v /workspace:/workspace \
-          gcr.io/gcp-runtimes/container-structure-test:latest test \
-            --image ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG \
-            --config /workspace/structure-test-config.yaml
-
-        echo "----------------------------------------------------------------------------------------------------------"
-
-        echo "Running security vulnerability scan against the built image"
-        echo "----------------------------------------------------------------------------------------------------------"
-
-        gcloud artifacts docker images scan ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG --format="value(vulnerabilitySummary)"
+      trivy image \
+        --exit-code 1 \
+        --severity HIGH,CRITICAL \
+        --no-progress \
+        "$$IMAGE_REF" > /workspace/trivy_report.txt || {
+          echo "Trivy scan found vulnerabilities in $$IMAGE_REF. See trivy_report.txt for details." >&2
+          exit 1
+        }
 
 # Step 6: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
@@ -225,6 +214,7 @@ steps:
 # Step 7: Compare RootFS layers and conditionally push
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Conditional push'
+  waitFor: ['trivy-security-scan-image']
   entrypoint: 'bash'
   args:
     - '-c'
