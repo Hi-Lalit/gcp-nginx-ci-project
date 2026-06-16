@@ -112,7 +112,7 @@ steps:
 
       gcloud artifacts docker tags list ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE} \
         --format="value(tag)" > /workspace/repo_image_tags.txt
-      
+
       # 2. Load Repository image references and tags into variables for later use
       repo_image_list=$$(cat /workspace/repo_image_list.txt 2>/dev/null)
       repo_image_tag=$$(cat /workspace/repo_image_tags.txt 2>/dev/null)
@@ -121,14 +121,12 @@ steps:
         echo "Images not found in the repository. This is the first image to build and push."
       else
         echo "Found images in the repository:"
-        echo "List of images is: $$repo_image_list"        
+        echo "List of images is: $$repo_image_list"
       fi
-    
+
       # 3. Handle Semantic Versioning calculation
-      # Read bump type — defaults to patch if not passed
-      
-      BUMP="${_VERSION_BUMP:-patch}"
-      echo "Bump type: $$BUMP"
+      # ✅ Print Cloud Build substitution value directly
+      echo "Bump type: ${_VERSION_BUMP}"
 
       if [ -z "$$repo_image_tag" ]; then
           echo "No tags found. Starting semver chain at v1.0.0"
@@ -149,13 +147,13 @@ steps:
           else
               echo "Latest tag found: v$$latest_tag"
 
-              # ✅ Uppercase to avoid reserved word conflict
+              # Split into MAJOR MINOR PATCH — uppercase avoids reserved word conflict
               IFS='.' read -r MAJOR MINOR PATCH <<< "$$latest_tag"
 
               echo "Parsed → MAJOR=$$MAJOR MINOR=$$MINOR PATCH=$$PATCH"
 
-              # ✅ Clean case with uppercase variables
-              case "$$BUMP" in
+              # ✅ Use Cloud Build substitution directly in case — no BUMP variable
+              case "${_VERSION_BUMP}" in
                 major)
                   updated_tag="v$$((MAJOR + 1)).0.0" ;;
                 minor)
