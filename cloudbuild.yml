@@ -125,30 +125,43 @@ steps:
       fi
     
       # 3. Handle Semantic Versioning calculation
+      # Read bump type — defaults to patch if not passed
+      BUMP="${_VERSION_BUMP:-patch}"
+      echo "Bump type: $$BUMP"
+
       if [ -z "$$repo_image_tag" ]; then
-          echo "Tag file is empty or missing."
-          echo "v1.0.1" > /workspace/tag.txt
-          echo "This is the first image to build with tag: v1.0.1"
+          echo "No tags found. Starting semver chain at v1.0.0"
+          echo "v1.0.0" > /workspace/tag.txt
+
       else
-          # Filter for tags that specifically match the vX.Y.Z semver format
+          # Filter only valid vX.Y.Z tags
           latest_tag=$$(echo "$$repo_image_tag" \
             | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
             | sed 's/^v//' \
             | sort -V \
             | tail -n 1)
 
-          # Fallback if tags exist but none match vX.Y.Z
+          # No valid semver tags found — start fresh
+          
           if [ -z "$$latest_tag" ]; then
-              echo "No valid semver tags found. Starting chain at v1.0.1"
-              echo "v1.0.1" > /workspace/tag.txt
+              echo "No valid semver tags found. Starting at v1.0.0"
+              echo "v1.0.0" > /workspace/tag.txt
+
           else
-              echo "Latest semantic tag found: v$$latest_tag"
-              
+              echo "Latest tag found: v$$latest_tag"
+
+              # Split into major minor patch
               IFS='.' read -r major minor patch <<< "$$latest_tag"
 
-              # Safely increment the patch number
-              next_patch=$$(($$patch + 1))
-              updated_tag="v$${major}.$${minor}.$${next_patch}"
+              # Increment based on bump type
+              case "$$BUMP" in
+                major)
+                  updated_tag="v$$((major + 1)).0.0" ;;
+                minor)
+                  updated_tag="v$${major}.$$((minor + 1)).0" ;;
+                patch|*)
+                  updated_tag="v$${major}.$${minor}.$$((patch + 1))" ;;
+              esac
 
               echo "Updated tag: $$updated_tag"
               echo "$$updated_tag" > /workspace/tag.txt
