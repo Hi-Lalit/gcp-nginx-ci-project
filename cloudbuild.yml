@@ -420,7 +420,7 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/{_PROJECT_ID}/secrets/SONAR_TOKEN_SECRET/versions/latest
+    - versionName: projects/$PROJECT_ID/secrets/SONAR_TOKEN_SECRET/versions/latest
       env: '_SONAR_TOKEN'
 
 logsBucket: 'gs://${_LOG_BUCKET}'
