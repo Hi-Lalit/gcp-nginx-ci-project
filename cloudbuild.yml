@@ -126,6 +126,7 @@ steps:
     
       # 3. Handle Semantic Versioning calculation
       # Read bump type — defaults to patch if not passed
+      
       BUMP="${_VERSION_BUMP:-patch}"
       echo "Bump type: $$BUMP"
 
@@ -141,8 +142,6 @@ steps:
             | sort -V \
             | tail -n 1)
 
-          # No valid semver tags found — start fresh
-
           if [ -z "$$latest_tag" ]; then
               echo "No valid semver tags found. Starting at v1.0.0"
               echo "v1.0.0" > /workspace/tag.txt
@@ -150,17 +149,19 @@ steps:
           else
               echo "Latest tag found: v$$latest_tag"
 
-              # Split into major minor patch
-              IFS='.' read -r major minor patch <<< "$$latest_tag"
+              # ✅ Uppercase to avoid reserved word conflict
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$$latest_tag"
 
-              # Increment based on bump type
+              echo "Parsed → MAJOR=$$MAJOR MINOR=$$MINOR PATCH=$$PATCH"
+
+              # ✅ Clean case with uppercase variables
               case "$$BUMP" in
                 major)
-                  updated_tag="v$$((major + 1)).0.0" ;;
+                  updated_tag="v$$((MAJOR + 1)).0.0" ;;
                 minor)
-                  updated_tag="v$${major}.$$((minor + 1)).0" ;;
+                  updated_tag="v$${MAJOR}.$$((MINOR + 1)).0" ;;
                 patch|*)
-                  updated_tag="v$${major}.$${minor}.$$((patch + 1))" ;;
+                  updated_tag="v$${MAJOR}.$${MINOR}.$$((PATCH + 1))" ;;
               esac
 
               echo "Updated tag: $$updated_tag"
