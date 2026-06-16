@@ -95,7 +95,7 @@ steps:
 
 # Step 4: List all images currently in the repository and calculate the next semver tag
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: 'Fetch repository images'
+  id: 'Calculate semver tag'
   entrypoint: 'bash'
   args:
     - '-c'
@@ -103,7 +103,7 @@ steps:
       set -e
 
       echo "----------------------------------------------------------------------------------------------------------"
-      echo "Listing all images in the repository"
+      echo "Calculating semantic version tag"
       echo "----------------------------------------------------------------------------------------------------------"
 
       # 1. List all images and tags in the repository and save to files
@@ -142,7 +142,7 @@ steps:
             | tail -n 1)
 
           # No valid semver tags found — start fresh
-          
+
           if [ -z "$$latest_tag" ]; then
               echo "No valid semver tags found. Starting at v1.0.0"
               echo "v1.0.0" > /workspace/tag.txt
@@ -325,6 +325,7 @@ steps:
         echo "WARNING: repo_rootfs.txt is empty or missing. No existing images to compare against." >&2
         echo "Proceeding to push the new image without comparison."
         docker push "$$FULL_IMAGE_NAME"
+        echo "pushed" > /workspace/push_status.txt
         exit 0
       fi
       
@@ -332,12 +333,75 @@ steps:
       if grep -Fxq "$$NEW_ROOTFS" "$$REPO_ROOTFS"; then
         echo "MATCH FOUND: An image with this exact layer combination already exists."
         echo "Action: Skipping push for $$NEW_TAG."
+        echo "skipped" > /workspace/push_status.txt
       else
         echo "NO MATCH: Unique layer combination detected."
         echo "Action: Pushing $$FULL_IMAGE_NAME"
 
         docker push "$$FULL_IMAGE_NAME"
+        echo "pushed" > /workspace/push_status.txt
       fi
+
+# Step 10: Generate and upload SBOM after push
+- name: 'docker.io/aquasec/trivy:latest'
+  id: 'Generate SBOM'
+  entrypoint: 'sh'
+  args:
+    - '-c'
+    - |
+      set -e
+
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Generating SBOM for the built image"
+      echo "----------------------------------------------------------------------------------------------------------"
+
+      PUSH_STATUS=$$(cat /workspace/push_status.txt 2>/dev/null)
+
+      if [ "$$PUSH_STATUS" = "skipped" ]; then
+        echo "Image was not pushed (duplicate). Skipping SBOM generation."
+        exit 0
+      fi
+
+      TAG=$$(cat /workspace/tag.txt)
+      IMAGE_REF=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
+
+      # Generate SBOM in CycloneDX JSON format
+      trivy image \
+        --format cyclonedx \
+        --output /workspace/sbom.json \
+        --no-progress \
+        "$$IMAGE_REF"
+
+      echo "SBOM generated successfully"
+      cat /workspace/sbom.json
+
+# Step 11: Upload SBOM to GCS bucket under versioned path
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Upload SBOM'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      set -e
+
+      PUSH_STATUS=$$(cat /workspace/push_status.txt 2>/dev/null)
+
+      if [ "$$PUSH_STATUS" = "skipped" ]; then
+        echo "Image was not pushed. Skipping SBOM upload."
+        exit 0
+      fi
+
+      TAG=$$(cat /workspace/tag.txt)
+
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Uploading SBOM to GCS"
+      echo "----------------------------------------------------------------------------------------------------------"
+
+      # Upload SBOM to GCS bucket under versioned path
+      gsutil cp /workspace/sbom.json \
+        gs://${_LOG_BUCKET}/sbom/$$TAG/sbom.json
+
+      echo "SBOM uploaded to gs://${_LOG_BUCKET}/sbom/$$TAG/sbom.json"
 
 # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
 #   id: 'Run cd-pipeline'
@@ -356,8 +420,7 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/devops-project-495401/secrets/SONAR_TOKEN_SECRET/versions/latest
+    - versionName: projects/{_PROJECT_ID}/secrets/SONAR_TOKEN_SECRET/versions/latest
       env: '_SONAR_TOKEN'
-
 
 logsBucket: 'gs://${_LOG_BUCKET}'
