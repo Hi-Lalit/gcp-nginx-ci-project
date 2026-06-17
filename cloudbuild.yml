@@ -174,6 +174,8 @@ steps:
   args:
     - '-c'
     - |
+      set -e
+
       echo "----------------------------------------------------------------------------------------------------------"
       echo "Building the image with Kaniko and saving to tarball (no push)"
       echo "----------------------------------------------------------------------------------------------------------"
@@ -221,7 +223,7 @@ steps:
       echo "New image RootFS layers:"
       cat /workspace/new_rootfs.txt
 
-# Step 7: Scan the image with Trivy and save results to file
+# Step 7: Scan the built image tarball directly with Trivy
 - name: 'docker.io/aquasec/trivy:latest'
   id: 'trivy-security-scan-image'
   entrypoint: 'sh'
@@ -229,21 +231,26 @@ steps:
     - '-c'
     - |
       set -e
-      echo "----------------------------------------------------------------------------------------------------------"
-      echo "Scanning the built image with Trivy for vulnerabilities"
-      echo "----------------------------------------------------------------------------------------------------------"
-      TAG=$$(cat /workspace/tag.txt)
-      IMAGE_REF=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$$TAG
 
+      echo "----------------------------------------------------------------------------------------------------------"
+      echo "Scanning the built image tarball with Trivy for vulnerabilities"
+      echo "----------------------------------------------------------------------------------------------------------"
+
+      TAG=$$(cat /workspace/tag.txt)
+
+      # Scan directly from the tarball — no registry pull needed, no Docker daemon needed
       trivy image \
+        --input /workspace/image.tar \
         --exit-code 1 \
         --ignore-unfixed \
         --severity HIGH,CRITICAL \
-        --no-progress \
-        "$$IMAGE_REF" > /workspace/trivy_report.txt || {
-          echo "Trivy scan found vulnerabilities in $$IMAGE_REF. See trivy_report.txt for details." >&2
-          exit 1
-        }
+        --scanners vuln \
+        --format table \
+        --output /workspace/trivy_image_report.txt \
+        --no-progress
+
+      echo "Trivy image scan passed for tag: $$TAG"
+      cat /workspace/trivy_image_report.txt
 
 # Step 8: Extract RootFS layers of existing repository images using crane
 - name: 'gcr.io/go-containerregistry/crane:debug'
